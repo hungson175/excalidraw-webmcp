@@ -5,6 +5,11 @@ import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 
 import { createRetrofitController } from "./retrofit_controller";
 import { createWebMCPRegistration } from "./webmcp_adapter";
+import {
+  PLAIN_REPLAY_REQUEST_EVENT,
+  PLAIN_REPLAY_STATUS_EVENT,
+  runPlainReplay,
+} from "./plain_replay";
 import { RecordingHud } from "./RecordingHud";
 import { RegistryPalette } from "./RegistryPalette";
 import "./RetrofitPanel.scss";
@@ -71,6 +76,50 @@ export const RetrofitPanel = ({
       }
     };
   }, [api, controller, supplied]);
+
+  useEffect(() => {
+    let active: AbortController | null = null;
+    let runSequence = 0;
+    const publish = (detail: unknown) =>
+      window.dispatchEvent(
+        new CustomEvent(PLAIN_REPLAY_STATUS_EVENT, { detail }),
+      );
+    const startReplay = () => {
+      active?.abort();
+      const sequence = ++runSequence;
+      const abort = new AbortController();
+      active = abort;
+      setMessage("Explicit local replay running — not a native agent.");
+      publish({ state: "running", completedSteps: 0 });
+      void runPlainReplay(controller, {
+        signal: abort.signal,
+        onStep: ({ completedSteps }) => {
+          if (sequence === runSequence) {
+            setMessage(
+              `Explicit local replay ${completedSteps}/5 — not a native agent.`,
+            );
+          }
+        },
+      }).then((result) => {
+        if (sequence !== runSequence) {
+          return;
+        }
+        active = null;
+        setMessage(
+          result.ok
+            ? "Explicit local replay staged — not a native agent. Review amber changes, then commit yourself."
+            : `Local replay stopped after ${result.completedSteps}/5: ${result.message}`,
+        );
+        publish(result);
+      });
+    };
+    window.addEventListener(PLAIN_REPLAY_REQUEST_EVENT, startReplay);
+    return () => {
+      runSequence += 1;
+      active?.abort();
+      window.removeEventListener(PLAIN_REPLAY_REQUEST_EVENT, startReplay);
+    };
+  }, [controller]);
 
   const appState = api.getAppState();
   const zoom = appState.zoom.value;

@@ -1,7 +1,17 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { RetrofitPanel } from "../RetrofitPanel";
+import {
+  PLAIN_REPLAY_REQUEST_EVENT,
+  PLAIN_REPLAY_STATUS_EVENT,
+} from "../plain_replay";
 import { createRetrofitController } from "../retrofit_controller";
 
 const elements = [
@@ -80,5 +90,38 @@ describe("RetrofitPanel", () => {
     fireEvent.click(commit);
     expect(api.updateScene).not.toHaveBeenCalled();
     expect(screen.getByText("Human click required")).toBeTruthy();
+  });
+
+  it("runs the explicit replay through its sole controller and only stages", async () => {
+    const api = { ...makeApi(), getSceneElements: () => [] };
+    const controller = createRetrofitController(api as never);
+    const statuses: unknown[] = [];
+    const onStatus = (event: Event) =>
+      statuses.push((event as CustomEvent).detail);
+    window.addEventListener(PLAIN_REPLAY_STATUS_EVENT, onStatus);
+    const view = render(
+      <RetrofitPanel api={api as never} controller={controller} />,
+    );
+
+    expect(screen.getByText("READY")).toBeTruthy();
+    expect(api.updateScene).not.toHaveBeenCalled();
+    act(() => window.dispatchEvent(new Event(PLAIN_REPLAY_REQUEST_EVENT)));
+
+    await waitFor(() => expect(screen.getByText("UNCOMMITTED")).toBeTruthy());
+    expect(view.container.querySelectorAll("[data-ghost='true']")).toHaveLength(
+      8,
+    );
+    expect(screen.getByText(/Explicit local replay staged/)).toBeTruthy();
+    expect(screen.getByText(/not a native agent/i)).toBeTruthy();
+    expect(api.updateScene).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Commit layout" })).toBeEnabled();
+    expect(statuses.at(-1)).toEqual({
+      ok: true,
+      status: "uncommitted",
+      completedSteps: 5,
+    });
+
+    view.unmount();
+    window.removeEventListener(PLAIN_REPLAY_STATUS_EVENT, onStatus);
   });
 });
