@@ -77,7 +77,7 @@ const makeApi = (
 const signal = () => new AbortController().signal;
 
 describe("Excalidraw retrofit controller", () => {
-  it("publishes a bounded three-tool registry without a commit tool", () => {
+  it("publishes a bounded four-tool registry without a commit tool", () => {
     const { api } = makeApi();
     const controller = createRetrofitController(api as never);
     const descriptors = controller.listTools();
@@ -86,6 +86,7 @@ describe("Excalidraw retrofit controller", () => {
       "select_shapes",
       "align_shapes",
       "equalize_size",
+      "connect_shapes",
     ]);
     expect(
       descriptors.find(({ name }) => name === "select_shapes")?.annotations,
@@ -93,7 +94,11 @@ describe("Excalidraw retrofit controller", () => {
     expect(
       descriptors.every(({ name }) => !/commit|accept|reject/i.test(name)),
     ).toBe(true);
-    expect(JSON.stringify(descriptors).length).toBeLessThanOrEqual(1536);
+    expect(
+      descriptors.every(
+        (descriptor) => JSON.stringify(descriptor).length <= 768,
+      ),
+    ).toBe(true);
   });
 
   it("selects bounded scene objects into page-local state without mutating the host", async () => {

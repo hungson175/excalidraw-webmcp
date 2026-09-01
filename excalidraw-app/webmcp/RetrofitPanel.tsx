@@ -45,8 +45,8 @@ export const RetrofitPanel = ({
       }
       setWebmcpStatus(
         receipt.supported
-          ? receipt.registered.length === 3
-            ? "WEBMCP 3"
+          ? receipt.registered.length === controller.listTools().length
+            ? `WEBMCP ${receipt.registered.length}`
             : "WEBMCP ERROR"
           : "LOCAL ONLY",
       );
@@ -103,7 +103,49 @@ export const RetrofitPanel = ({
         aria-hidden="true"
         style={{ pointerEvents: "none" }}
       >
+        <defs>
+          <marker
+            id="webmcp-arrowhead"
+            markerWidth="8"
+            markerHeight="8"
+            refX="7"
+            refY="4"
+            orient="auto"
+          >
+            <path d="M 0 0 L 8 4 L 0 8 z" />
+          </marker>
+        </defs>
         {snapshot.pending?.elements.map((element) => {
+          if (element.type === "arrow" && element.points.length >= 2) {
+            const start = element.points[0];
+            const end = element.points[element.points.length - 1];
+            const startPoint = sceneCoordsToViewportCoords(
+              {
+                sceneX: element.x + start[0],
+                sceneY: element.y + start[1],
+              },
+              appState,
+            );
+            const endPoint = sceneCoordsToViewportCoords(
+              {
+                sceneX: element.x + end[0],
+                sceneY: element.y + end[1],
+              },
+              appState,
+            );
+            return (
+              <line
+                key={element.id}
+                data-ghost="true"
+                data-ghost-connector="true"
+                x1={startPoint.x}
+                y1={startPoint.y}
+                x2={endPoint.x}
+                y2={endPoint.y}
+                markerEnd="url(#webmcp-arrowhead)"
+              />
+            );
+          }
           const point = sceneCoordsToViewportCoords(
             { sceneX: element.x, sceneY: element.y },
             appState,

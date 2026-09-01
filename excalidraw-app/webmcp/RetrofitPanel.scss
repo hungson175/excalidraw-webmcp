@@ -12,6 +12,18 @@
     stroke-width: 3;
     vector-effect: non-scaling-stroke;
   }
+
+  line {
+    fill: none;
+    stroke: #e8a317;
+    stroke-dasharray: 9 6;
+    stroke-width: 3;
+    vector-effect: non-scaling-stroke;
+  }
+
+  marker path {
+    fill: #e8a317;
+  }
 }
 
 .webmcp-retrofit {

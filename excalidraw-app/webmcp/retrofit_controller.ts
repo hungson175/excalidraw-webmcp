@@ -1,7 +1,15 @@
-import { CaptureUpdateAction } from "@excalidraw/excalidraw";
+import {
+  CaptureUpdateAction,
+  convertToExcalidrawElements,
+} from "@excalidraw/excalidraw";
+import { randomId } from "@excalidraw/common";
 import { newElementWith } from "@excalidraw/element";
 
-import type { ExcalidrawElement } from "@excalidraw/element/types";
+import type { ExcalidrawElementSkeleton } from "@excalidraw/element";
+import type {
+  ExcalidrawArrowElement,
+  ExcalidrawElement,
+} from "@excalidraw/element/types";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 
 import { createToolRegistry } from "./tool_registry";
@@ -16,6 +24,7 @@ import type {
 
 const MAX_ELEMENTS = 240;
 const MAX_RETURNED_IDS = 40;
+const MAX_CONNECTOR_SOURCES = 40;
 const SAFE_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 const SHAPE_TYPES = new Set([
   "rectangle",
@@ -37,6 +46,7 @@ const ALIGN_EDGES = new Set([
 const ALIGN_TARGETS = new Set(["selection", "canvas", "first"]);
 const DIMENSIONS = new Set(["width", "height"]);
 const SIZE_MODES = new Set(["max", "min", "first", "average"]);
+const BINDABLE_TYPES = new Set(["rectangle", "diamond", "ellipse"]);
 
 type SceneApi = Pick<
   ExcalidrawImperativeAPI,
@@ -50,7 +60,7 @@ type Geometry = Pick<
 
 type PendingLayout = {
   baseVersions: Record<string, { version: number; versionNonce: number }>;
-  elements: Geometry[];
+  elements: ExcalidrawElement[];
   operations: string[];
 };
 
@@ -105,6 +115,33 @@ const parseIds = (value: unknown): string[] | ToolFailure | undefined => {
     return failure("invalid_args", "ids contain an invalid element id");
   }
   return ids as string[];
+};
+
+const isSafeId = (value: unknown): value is string =>
+  typeof value === "string" &&
+  SAFE_ID_RE.test(value) &&
+  value !== "__proto__" &&
+  value !== "constructor" &&
+  value !== "prototype";
+
+const parseConnectorIds = (value: unknown): string[] | ToolFailure => {
+  if (
+    !Array.isArray(value) ||
+    value.length === 0 ||
+    value.length > MAX_CONNECTOR_SOURCES
+  ) {
+    return failure(
+      "invalid_args",
+      `sourceIds must contain 1 to ${MAX_CONNECTOR_SOURCES} unique ids`,
+    );
+  }
+  if (!value.every(isSafeId)) {
+    return failure("invalid_args", "sourceIds contain an invalid element id");
+  }
+  if (new Set(value).size !== value.length) {
+    return failure("invalid_args", "sourceIds must not contain duplicates");
+  }
+  return value as string[];
 };
 
 const checkAbort = (signal: AbortSignal) => {
@@ -206,8 +243,9 @@ export const createRetrofitController = (api: SceneApi) => {
 
   const stage = (
     tool: string,
-    geometries: Geometry[],
+    stagedElements: ExcalidrawElement[],
     context: ToolExecutionContext,
+    options?: { baseIds?: string[]; reportedIds?: string[] },
   ): ToolResult => {
     checkAbort(context.signal);
     const currentById = new Map(
@@ -218,22 +256,46 @@ export const createRetrofitController = (api: SceneApi) => {
     const pendingById = new Map(
       previous?.elements.map((item) => [item.id, item]),
     );
+    const baseIds = options?.baseIds ?? stagedElements.map(({ id }) => id);
 
-    for (const geometry of geometries) {
-      const live = currentById.get(geometry.id);
+    for (const id of baseIds) {
+      const live = currentById.get(id);
       if (!live) {
         return failure(
           "unsafe_retry",
           "A target changed before preview could be staged",
         );
       }
-      baseVersions[geometry.id] ??= {
+      if (live.locked || live.isDeleted) {
+        return failure(
+          "unsafe_retry",
+          "A target became locked or deleted before preview could be staged",
+        );
+      }
+      baseVersions[id] ??= {
         version: live.version,
         versionNonce: live.versionNonce,
       };
-      pendingById.set(geometry.id, geometry);
+    }
+    for (const element of stagedElements) {
+      const isExistingPendingAddition =
+        previous?.elements.some(({ id }) => id === element.id) &&
+        !baseVersions[element.id];
+      if (
+        currentById.has(element.id) &&
+        !baseVersions[element.id] &&
+        !isExistingPendingAddition
+      ) {
+        return failure(
+          "unsafe_retry",
+          "A staged element id collided with the live drawing",
+        );
+      }
+      pendingById.set(element.id, element);
     }
     checkAbort(context.signal);
+    const reportedIds =
+      options?.reportedIds ?? stagedElements.map(({ id }) => id);
 
     snapshot = {
       ...snapshot,
@@ -247,7 +309,7 @@ export const createRetrofitController = (api: SceneApi) => {
         {
           sequence: ++sequence,
           tool,
-          changedIds: geometries.map(({ id }) => id),
+          changedIds: reportedIds.slice(0, MAX_RETURNED_IDS),
           outcome: "uncommitted",
         },
       ],
@@ -256,7 +318,7 @@ export const createRetrofitController = (api: SceneApi) => {
     return {
       ok: true,
       status: "uncommitted",
-      ...summarizeIds(geometries.map(({ id }) => id)),
+      ...summarizeIds(reportedIds),
     };
   };
 
@@ -435,7 +497,19 @@ export const createRetrofitController = (api: SceneApi) => {
         angle: item.angle,
       };
     });
-    return stage("align_shapes", geometries, context);
+    return stage(
+      "align_shapes",
+      geometries.map((geometry) => {
+        const target = targets.find(({ id }) => id === geometry.id)!;
+        return newElementWith(target, {
+          x: geometry.x,
+          y: geometry.y,
+          width: geometry.width,
+          height: geometry.height,
+        });
+      }),
+      context,
+    );
   };
 
   const equalizeSize: ToolDescriptor["execute"] = async (args, context) => {
@@ -481,7 +555,192 @@ export const createRetrofitController = (api: SceneApi) => {
         angle: item.angle,
       }),
     );
-    return stage("equalize_size", geometries, context);
+    return stage(
+      "equalize_size",
+      geometries.map((geometry) => {
+        const target = targets.find(({ id }) => id === geometry.id)!;
+        return newElementWith(target, {
+          x: geometry.x,
+          y: geometry.y,
+          width: geometry.width,
+          height: geometry.height,
+        });
+      }),
+      context,
+    );
+  };
+
+  const connectShapes: ToolDescriptor["execute"] = async (args, context) => {
+    checkAbort(context.signal);
+    if (!isRecord(args) || !hasOnlyKeys(args, ["sourceIds", "targetId"])) {
+      return failure("invalid_args", "Use only sourceIds and targetId");
+    }
+    const sourceIds = parseConnectorIds(args.sourceIds);
+    if (!Array.isArray(sourceIds)) {
+      return sourceIds;
+    }
+    if (!isSafeId(args.targetId)) {
+      return failure("invalid_args", "targetId is not a valid element id");
+    }
+    const targetId = args.targetId;
+    if (sourceIds.includes(targetId)) {
+      return failure("invalid_args", "A shape cannot connect to itself");
+    }
+
+    const map = workingMap();
+    const sourceElements: ExcalidrawElement[] = [];
+    for (const id of sourceIds) {
+      const source = map.get(id);
+      if (!source) {
+        return failure("not_found", "One or more source shapes do not exist");
+      }
+      if (source.locked || source.isDeleted) {
+        return failure("unsafe_retry", "A source shape is locked or deleted");
+      }
+      if (!BINDABLE_TYPES.has(source.type)) {
+        return failure(
+          "unsafe_retry",
+          "Only rectangle, diamond, or ellipse sources can be connected",
+        );
+      }
+      sourceElements.push(source);
+    }
+    const target = map.get(targetId);
+    if (!target) {
+      return failure("not_found", "The target shape does not exist");
+    }
+    if (target.locked || target.isDeleted) {
+      return failure("unsafe_retry", "The target shape is locked or deleted");
+    }
+    if (!BINDABLE_TYPES.has(target.type)) {
+      return failure(
+        "unsafe_retry",
+        "Only a rectangle, diamond, or ellipse can be the target",
+      );
+    }
+
+    const existingPairs = new Set(
+      Array.from(map.values())
+        .filter(
+          (element): element is ExcalidrawArrowElement =>
+            element.type === "arrow" &&
+            Boolean(element.startBinding) &&
+            Boolean(element.endBinding),
+        )
+        .map(
+          (arrow) =>
+            `${arrow.startBinding!.elementId}\u0000${
+              arrow.endBinding!.elementId
+            }`,
+        ),
+    );
+    if (
+      sourceIds.some((sourceId) =>
+        existingPairs.has(`${sourceId}\u0000${targetId}`),
+      )
+    ) {
+      return failure(
+        "unsafe_retry",
+        "One or more requested connectors already exist or are pending",
+      );
+    }
+
+    const arrowIds = new Set<string>();
+    const nextArrowId = () => {
+      let id = randomId();
+      while (map.has(id) || arrowIds.has(id)) {
+        id = randomId();
+      }
+      arrowIds.add(id);
+      return id;
+    };
+    const arrowSkeletons: ExcalidrawElementSkeleton[] = sourceElements.map(
+      (source) => {
+        const sourceX = source.x + source.width / 2;
+        const sourceY = source.y + source.height / 2;
+        const targetX = target.x + target.width / 2;
+        const targetY = target.y + target.height / 2;
+        return {
+          id: nextArrowId(),
+          type: "arrow",
+          x: sourceX,
+          y: sourceY,
+          width: targetX - sourceX,
+          height: targetY - sourceY,
+          strokeColor: "#e8a317",
+          endArrowhead: "arrow",
+          start: { id: source.id },
+          end: { id: target.id },
+        };
+      },
+    );
+    const involved = [...sourceElements, target];
+    const skeletons: ExcalidrawElementSkeleton[] = [
+      ...involved.map(
+        (element) => structuredClone(element) as ExcalidrawElementSkeleton,
+      ),
+      ...arrowSkeletons,
+    ];
+    const converted = convertToExcalidrawElements(skeletons, {
+      regenerateIds: false,
+    });
+    const convertedById = new Map(
+      converted.map((element) => [element.id, element]),
+    );
+    const convertedArrows = arrowSkeletons.map(({ id }) =>
+      id ? convertedById.get(id) : undefined,
+    );
+    if (
+      convertedArrows.some(
+        (element) =>
+          !element ||
+          element.type !== "arrow" ||
+          !element.startBinding ||
+          !element.endBinding,
+      )
+    ) {
+      return failure(
+        "unsafe_retry",
+        "The public Excalidraw converter could not bind every connector",
+      );
+    }
+
+    const arrows = convertedArrows as ExcalidrawArrowElement[];
+    const convertedContainers = involved.map((element) =>
+      convertedById.get(element.id),
+    );
+    const bindingsRoundTrip = arrows.every((arrow) => {
+      const source = convertedById.get(arrow.startBinding!.elementId);
+      const convertedTarget = convertedById.get(arrow.endBinding!.elementId);
+      return (
+        source?.boundElements?.some(({ id }) => id === arrow.id) &&
+        convertedTarget?.boundElements?.some(({ id }) => id === arrow.id)
+      );
+    });
+    if (convertedContainers.some((element) => !element) || !bindingsRoundTrip) {
+      return failure(
+        "unsafe_retry",
+        "The public Excalidraw converter did not preserve mirrored bindings",
+      );
+    }
+
+    const stagedContainers = involved.map((element) => {
+      const convertedElement = convertedById.get(element.id)!;
+      return newElementWith(element, {
+        boundElements: convertedElement.boundElements,
+      });
+    });
+    checkAbort(context.signal);
+    const staged = stage(
+      "connect_shapes",
+      [...stagedContainers, ...arrows],
+      context,
+      {
+        baseIds: involved.map(({ id }) => id),
+        reportedIds: arrows.map(({ id }) => id),
+      },
+    );
+    return staged.ok ? { ...staged, connectorCount: arrows.length } : staged;
   };
 
   const descriptors: ToolDescriptor[] = [
@@ -539,6 +798,26 @@ export const createRetrofitController = (api: SceneApi) => {
       annotations: { readOnlyHint: false },
       execute: equalizeSize,
     },
+    {
+      name: "connect_shapes",
+      description:
+        "Stage directed connectors from up to 40 explicit shapes to one target without changing the live drawing.",
+      inputSchema: toolSchema(
+        {
+          sourceIds: {
+            type: "array",
+            items: { type: "string" },
+            minItems: 1,
+            maxItems: MAX_CONNECTOR_SOURCES,
+            uniqueItems: true,
+          },
+          targetId: { type: "string" },
+        },
+        ["sourceIds", "targetId"],
+      ),
+      annotations: { readOnlyHint: false },
+      execute: connectShapes,
+    },
   ];
   const registry = createToolRegistry(descriptors);
 
@@ -556,13 +835,12 @@ export const createRetrofitController = (api: SceneApi) => {
       current.map((element) => [element.id, element]),
     );
     const changedIds = pending.elements.map(({ id }) => id);
-    for (const id of changedIds) {
-      const base = pending.baseVersions[id];
+    for (const [id, base] of Object.entries(pending.baseVersions)) {
       const live = currentById.get(id);
       if (
-        !base ||
         !live ||
         live.locked ||
+        live.isDeleted ||
         live.version !== base.version ||
         live.versionNonce !== base.versionNonce
       ) {
@@ -582,23 +860,34 @@ export const createRetrofitController = (api: SceneApi) => {
         return { ok: false as const, reason: "unsafe_retry" as const };
       }
     }
-
-    const geometryById = new Map(
-      pending.elements.map((item) => [item.id, item]),
+    const pendingById = new Map(
+      pending.elements.map((element) => [element.id, element]),
     );
+    const additions = pending.elements.filter(
+      ({ id }) => !pending.baseVersions[id],
+    );
+    if (additions.some(({ id }) => currentById.has(id))) {
+      snapshot = {
+        ...snapshot,
+        ledger: [
+          ...snapshot.ledger,
+          {
+            sequence: ++sequence,
+            tool: "human_commit",
+            changedIds: changedIds.slice(0, MAX_RETURNED_IDS),
+            outcome: "unsafe_retry",
+          },
+        ],
+      };
+      emit();
+      return { ok: false as const, reason: "unsafe_retry" as const };
+    }
+
     const elements = current.map((element) => {
-      const geometry = geometryById.get(element.id);
-      return geometry
-        ? newElementWith(element, {
-            x: geometry.x,
-            y: geometry.y,
-            width: geometry.width,
-            height: geometry.height,
-          })
-        : element;
+      return pendingById.get(element.id) ?? element;
     });
     api.updateScene({
-      elements,
+      elements: [...elements, ...additions],
       captureUpdate: CaptureUpdateAction.IMMEDIATELY,
     });
     snapshot = {
@@ -615,7 +904,10 @@ export const createRetrofitController = (api: SceneApi) => {
       ],
     };
     emit();
-    return { ok: true as const, appliedIds: changedIds };
+    return {
+      ok: true as const,
+      appliedIds: changedIds.slice(0, MAX_RETURNED_IDS),
+    };
   };
 
   const discardFromHuman = (gesture: HumanGesture) => {

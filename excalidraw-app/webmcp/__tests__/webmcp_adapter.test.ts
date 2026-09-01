@@ -87,7 +87,7 @@ describe("WebMCP registration bridge", () => {
     });
   });
 
-  it("registers the exact three reviewed tools sequentially with owned signals", async () => {
+  it("registers the exact four reviewed tools sequentially with owned signals", async () => {
     const calls: Array<{
       definition: Record<string, unknown>;
       options: { signal: AbortSignal };
@@ -102,12 +102,18 @@ describe("WebMCP registration bridge", () => {
 
     await expect(registration.ready).resolves.toEqual({
       supported: true,
-      registered: ["select_shapes", "align_shapes", "equalize_size"],
+      registered: [
+        "select_shapes",
+        "align_shapes",
+        "equalize_size",
+        "connect_shapes",
+      ],
     });
     expect(calls.map(({ definition }) => definition.name)).toEqual([
       "select_shapes",
       "align_shapes",
       "equalize_size",
+      "connect_shapes",
     ]);
     expect(
       calls.every(({ options }) => options.signal instanceof AbortSignal),
@@ -183,7 +189,7 @@ describe("WebMCP registration bridge", () => {
     await registration.ready;
 
     registration.dispose();
-    expect(signals).toHaveLength(3);
+    expect(signals).toHaveLength(4);
     expect(signals.every((signal) => signal.aborted)).toBe(true);
   });
 });
