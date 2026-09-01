@@ -348,16 +348,22 @@ export const ProductShell = ({
               className="product-shell__chatgpt-guide"
               aria-labelledby="chatgpt-guide-title"
             >
-              <h2 id="chatgpt-guide-title">Use with ChatGPT Desktop</h2>
+              <h2 id="chatgpt-guide-title">Try this WebMCP demo</h2>
               <ol>
-                <li>Open this page in ChatGPT's built-in browser.</li>
-                <li>
-                  Ask ChatGPT to use this page's WebMCP tools to draw your
-                  diagram.
-                </li>
-                <li>Review the amber proposal, then click Commit layout.</li>
+                <li>Open the ChatGPT Desktop app.</li>
+                <li>Open Codex and select Sol or Terra.</li>
+                <li>Paste this prompt:</li>
               </ol>
-              <p>No connection, MCP server, Chrome flag, or setup required.</p>
+              <blockquote>
+                Learn about WebMCP, then open this website:
+                https://hungson175.github.io/excalidraw-webmcp/ — using your own
+                built-in browser and WebMCP, create a diagram that explains the
+                concept of WebMCP to me.
+              </blockquote>
+              <p>
+                Wait while it draws. Click Commit layout, then edit the diagram
+                by hand if you like.
+              </p>
             </aside>
           </section>
           <footer>

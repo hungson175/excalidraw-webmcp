@@ -148,6 +148,20 @@
       line-height: 1.45;
     }
 
+    blockquote {
+      margin: 0.75rem 0 0;
+      padding: 0.8rem 0.9rem;
+      border-left: 3px solid var(--product-accent);
+      border-radius: 0.4rem;
+      background: #f1eff9;
+      color: var(--product-ink);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.78rem;
+      line-height: 1.5;
+      overflow-wrap: anywhere;
+      user-select: text;
+    }
+
     p {
       margin: 0.75rem 0 0;
       color: var(--product-muted);

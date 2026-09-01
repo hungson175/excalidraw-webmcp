@@ -49,15 +49,21 @@ describe("Entry B product shell", () => {
     expect(screen.getByRole("button", { name: "Start drawing" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Watch AI draw" })).toBeNull();
     expect(
-      screen.getByRole("heading", { name: "Use with ChatGPT Desktop" }),
+      screen.getByRole("heading", { name: "Try this WebMCP demo" }),
+    ).toBeTruthy();
+    expect(screen.getByText("Open the ChatGPT Desktop app.")).toBeTruthy();
+    expect(
+      screen.getByText("Open Codex and select Sol or Terra."),
+    ).toBeTruthy();
+    expect(screen.getByText("Paste this prompt:")).toBeTruthy();
+    expect(
+      screen.getByText(
+        /Learn about WebMCP, then open this website: https:\/\/hungson175\.github\.io\/excalidraw-webmcp\//,
+      ),
     ).toBeTruthy();
     expect(
-      screen.getByText(/Open this page in ChatGPT's built-in browser/),
+      screen.getByText(/Wait while it draws.*Commit layout.*edit.*by hand/i),
     ).toBeTruthy();
-    expect(
-      screen.getByText(/Ask ChatGPT to use this page's WebMCP tools/),
-    ).toBeTruthy();
-    expect(screen.getByText(/Review the amber proposal/)).toBeTruthy();
     expect(
       screen.queryByRole("button", { name: "Use with ChatGPT" }),
     ).toBeNull();
