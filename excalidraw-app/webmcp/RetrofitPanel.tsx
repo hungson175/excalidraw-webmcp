@@ -5,6 +5,7 @@ import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 
 import { createRetrofitController } from "./retrofit_controller";
 import { createWebMCPRegistration } from "./webmcp_adapter";
+import { RecordingHud } from "./RecordingHud";
 import { RegistryPalette } from "./RegistryPalette";
 import "./RetrofitPanel.scss";
 
@@ -73,6 +74,8 @@ export const RetrofitPanel = ({
 
   const appState = api.getAppState();
   const zoom = appState.zoom.value;
+  const isFilm =
+    new URLSearchParams(window.location.search).get("film") === "1";
 
   const humanAction = (
     event: React.MouseEvent<HTMLButtonElement>,
@@ -175,6 +178,15 @@ export const RetrofitPanel = ({
           );
         })}
       </svg>
+
+      {isFilm ? (
+        <RecordingHud
+          api={api}
+          controller={controller}
+          snapshot={snapshot}
+          webmcpLabel={webmcpStatus}
+        />
+      ) : null}
 
       <aside className="webmcp-retrofit" aria-label="Agent layout preview">
         <header>

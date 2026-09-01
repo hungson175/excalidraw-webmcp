@@ -1,0 +1,60 @@
+.webmcp-film-hud {
+  position: fixed;
+  z-index: 7;
+  top: 12px;
+  left: 12px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px 16px;
+  width: min(68rem, calc(100vw - 24px));
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border: 2px solid #fbbf24;
+  border-radius: 12px;
+  background: rgb(7 17 31 / 96%);
+  color: #f8fafc;
+  font: 700 16px/1.2 system-ui, sans-serif;
+  pointer-events: none;
+}
+
+.webmcp-film-copy p {
+  margin: 0;
+  color: #fbbf24;
+  letter-spacing: 0.04em;
+}
+
+.webmcp-film-copy strong,
+.webmcp-film-copy span {
+  display: block;
+  margin-top: 2px;
+}
+
+.webmcp-film-clock {
+  align-self: center;
+  color: #86efac;
+  font-size: 48px;
+  font-variant-numeric: tabular-nums;
+}
+
+.webmcp-film-cards {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(5, minmax(92px, 1fr));
+  gap: 8px;
+}
+
+.webmcp-film-card {
+  padding: 7px 9px;
+  border-radius: 8px;
+  background: #14213a;
+}
+.webmcp-film-card span {
+  display: block;
+  color: #cbd5e1;
+  font-size: 13px;
+}
+.webmcp-film-card strong {
+  display: block;
+  font-size: 32px;
+  font-variant-numeric: tabular-nums;
+}
