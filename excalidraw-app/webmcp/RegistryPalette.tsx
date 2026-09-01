@@ -109,6 +109,8 @@ export const RegistryPalette = ({
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape" && open) {
         event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
         close();
         return;
       }
@@ -122,6 +124,8 @@ export const RegistryPalette = ({
         return;
       }
       event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
       if (open) {
         close();
       } else {

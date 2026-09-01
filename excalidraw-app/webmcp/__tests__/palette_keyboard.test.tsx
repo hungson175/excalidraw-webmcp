@@ -77,4 +77,26 @@ describe("RegistryPalette keyboard lifecycle", () => {
     fireEvent.keyDown(window, { key: "k", ctrlKey: true });
     expect(screen.getAllByRole("dialog")).toHaveLength(1);
   });
+
+  it("claims an accepted shortcut before the host application can handle it", () => {
+    let hostShortcutCount = 0;
+    const hostHandler = () => {
+      hostShortcutCount += 1;
+    };
+    document.addEventListener("keydown", hostHandler, { capture: true });
+    render(
+      <RegistryPalette
+        controller={controller as never}
+        snapshot={snapshot as never}
+      />,
+    );
+
+    fireEvent.keyDown(document.body, { key: "k", ctrlKey: true });
+    document.removeEventListener("keydown", hostHandler, { capture: true });
+
+    expect(
+      screen.getByRole("dialog", { name: "WebMCP commands" }),
+    ).toBeTruthy();
+    expect(hostShortcutCount).toBe(0);
+  });
 });
