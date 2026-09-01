@@ -3,14 +3,21 @@ import {
   exportToBlob,
   MIME_TYPES,
 } from "@excalidraw/excalidraw";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 
 import {
-  PLAIN_REPLAY_REQUEST_EVENT,
-  PLAIN_REPLAY_STATUS_EVENT,
-} from "../plain_replay";
+  WEBMCP_TOOL_ACTIVITY_EVENT,
+  type WebMCPToolActivity,
+} from "../tool_activity";
 
 import {
   getLocalDiagramStore,
@@ -31,16 +38,14 @@ type ProductShellProps = {
   store?: DiagramStore;
 };
 
-type ProductView = "landing" | "workspace" | "library" | "guide";
+type ProductView = "landing" | "workspace" | "library";
 
 const readRoute = () => {
   const params = new URLSearchParams(window.location.hash.slice(1));
   const requested = params.get("view");
   const view: ProductView = params.has("share")
     ? "workspace"
-    : requested === "workspace" ||
-      requested === "library" ||
-      requested === "guide"
+    : requested === "workspace" || requested === "library"
     ? requested
     : "landing";
   return { view, share: params.get("share") };
@@ -84,6 +89,7 @@ export const ProductShell = ({
   const [status, setStatus] = useState("Ready");
   const [shareUrl, setShareUrl] = useState("");
   const importedShare = useRef<string | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
 
   const go = useCallback((next: ProductView) => {
     const params = new URLSearchParams();
@@ -112,33 +118,40 @@ export const ProductShell = ({
     };
   }, []);
 
-  useEffect(() => {
-    const replayChanged = (event: Event) => {
-      const detail = (event as CustomEvent).detail as unknown;
-      if (typeof detail !== "object" || detail === null) {
+  useLayoutEffect(() => {
+    const ownerDocument = rootRef.current?.ownerDocument;
+    const ownerWindow = ownerDocument?.defaultView;
+    if (!ownerDocument || !ownerWindow) {
+      return;
+    }
+    const revealAgentWorkspace = (event: Event) => {
+      const detail = (event as CustomEvent<WebMCPToolActivity>).detail;
+      if (
+        detail?.state !== "running" ||
+        typeof detail.tool !== "string" ||
+        !detail.tool
+      ) {
         return;
       }
-      if ("state" in detail && detail.state === "running") {
-        setStatus("Running an explicit local replay — not a native agent");
-        return;
-      }
-      if ("ok" in detail && detail.ok === true) {
-        setStatus(
-          "Replay staged as amber changes — a human must commit; not a native agent",
-        );
-        return;
-      }
-      if ("ok" in detail && detail.ok === false) {
-        const message =
-          "message" in detail && typeof detail.message === "string"
-            ? detail.message.slice(0, 240)
-            : "Replay could not continue";
-        setStatus(`Local replay stopped: ${message}`);
-      }
+      const params = new URLSearchParams();
+      params.set("view", "workspace");
+      ownerWindow.history.replaceState(
+        {},
+        "",
+        `${ownerWindow.location.pathname}${ownerWindow.location.search}#${params}`,
+      );
+      setView("workspace");
+      setStatus(`Agent is staging ${detail.tool}…`);
     };
-    window.addEventListener(PLAIN_REPLAY_STATUS_EVENT, replayChanged);
+    ownerDocument.addEventListener(
+      WEBMCP_TOOL_ACTIVITY_EVENT,
+      revealAgentWorkspace,
+    );
     return () =>
-      window.removeEventListener(PLAIN_REPLAY_STATUS_EVENT, replayChanged);
+      ownerDocument.removeEventListener(
+        WEBMCP_TOOL_ACTIVITY_EVENT,
+        revealAgentWorkspace,
+      );
   }, []);
 
   useEffect(() => {
@@ -299,26 +312,14 @@ export const ProductShell = ({
     }
   };
 
-  const watchAi = () => {
-    go("workspace");
-    window.setTimeout(
-      () => window.dispatchEvent(new CustomEvent(PLAIN_REPLAY_REQUEST_EVENT)),
-      0,
-    );
-    setStatus("Starting an explicit local replay — never an agent claim");
-  };
-
   return (
-    <div className="product-shell" data-product-view={view}>
+    <div ref={rootRef} className="product-shell" data-product-view={view}>
       {view === "landing" ? (
         <main className="product-shell__landing">
           <nav aria-label="Product">
             <span className="product-shell__brand">
               <span aria-hidden="true">◇</span> Canvas Agent
             </span>
-            <button type="button" onClick={() => go("guide")}>
-              Connect your agent
-            </button>
           </nav>
           <section>
             <p className="product-shell__eyebrow">
@@ -337,15 +338,27 @@ export const ProductShell = ({
               >
                 Start drawing
               </button>
-              <button type="button" onClick={watchAi}>
-                Watch AI draw
-              </button>
             </div>
             <ul aria-label="Product promises">
               <li>No account</li>
               <li>No backend</li>
               <li>Human-only commit</li>
             </ul>
+            <aside
+              className="product-shell__chatgpt-guide"
+              aria-labelledby="chatgpt-guide-title"
+            >
+              <h2 id="chatgpt-guide-title">Use with ChatGPT Desktop</h2>
+              <ol>
+                <li>Open this page in ChatGPT's built-in browser.</li>
+                <li>
+                  Ask ChatGPT to use this page's WebMCP tools to draw your
+                  diagram.
+                </li>
+                <li>Review the amber proposal, then click Commit layout.</li>
+              </ol>
+              <p>No connection, MCP server, Chrome flag, or setup required.</p>
+            </aside>
           </section>
           <footer>
             Local-first by design. Ignore every AI control and ordinary
@@ -376,9 +389,6 @@ export const ProductShell = ({
             </button>
             <button type="button" onClick={() => void exportPng()}>
               Export PNG
-            </button>
-            <button type="button" onClick={() => go("guide")}>
-              Connect your agent
             </button>
           </div>
         </nav>
@@ -490,67 +500,6 @@ export const ProductShell = ({
               </button>
             </section>
           )}
-        </main>
-      ) : null}
-
-      {view === "guide" ? (
-        <main
-          className="product-shell__page product-shell__guide"
-          aria-labelledby="agent-guide-title"
-        >
-          <header>
-            <p className="product-shell__eyebrow">LOCAL AGENT VIA CDP BRIDGE</p>
-            <h1 id="agent-guide-title">Connect your own coding agent</h1>
-            <p>
-              Your agent stays on your machine. This site supplies drawing
-              tools, not an AI account.
-            </p>
-          </header>
-          <ol>
-            <li>
-              <strong>Launch Chrome with a local debugging port.</strong>
-              <code>--remote-debugging-port=9223</code>
-            </li>
-            <li>
-              <strong>Point Chrome DevTools MCP at that browser.</strong>
-              <code>
-                npx chrome-devtools-mcp --browserUrl http://127.0.0.1:9223
-                --categoryExperimentalWebmcp=true
-              </code>
-            </li>
-            <li>
-              <strong>
-                Open this workspace, then ask Claude Code to list the page
-                tools.
-              </strong>
-              <span>
-                The origin trial activates WebMCP; no WebMCP browser feature
-                flag is required.
-              </span>
-            </li>
-            <li>
-              <strong>Review amber changes and commit them yourself.</strong>
-              <span>
-                Direct page calls pass the RegisteredTool object returned by
-                getTools(), not a name string.
-              </span>
-            </li>
-          </ol>
-          <aside>
-            <strong>Honest boundary</strong>
-            <code>native_agent_invocation=UNPROVEN</code>
-            <p>
-              The proven route is your local agent through the explicit Chrome
-              DevTools/CDP bridge.
-            </p>
-          </aside>
-          <button
-            className="is-primary"
-            type="button"
-            onClick={() => go("workspace")}
-          >
-            Open the workspace
-          </button>
         </main>
       ) : null}
 

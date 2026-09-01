@@ -183,25 +183,11 @@ describe("Entry B product actions", () => {
     expect(screen.getByRole("status")).toHaveTextContent("PNG exported");
   });
 
-  it("replaces the start message with the real replay completion status", () => {
+  it("does not expose the local replay demo as a product action", () => {
     render(
       <ProductShell api={makeApi() as never} store={makeStore() as never} />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Watch AI draw" }));
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "Starting an explicit local replay",
-    );
 
-    act(() =>
-      window.dispatchEvent(
-        new CustomEvent("webmcp:watch-replay-status", {
-          detail: { ok: true, status: "uncommitted", completedSteps: 5 },
-        }),
-      ),
-    );
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "Replay staged as amber changes — a human must commit",
-    );
-    expect(screen.getByRole("status")).toHaveTextContent("not a native agent");
+    expect(screen.queryByRole("button", { name: "Watch AI draw" })).toBeNull();
   });
 });

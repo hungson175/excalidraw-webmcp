@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ProductShell } from "../product/ProductShell";
@@ -41,7 +47,20 @@ describe("Entry B product shell", () => {
       }),
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: "Start drawing" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Watch AI draw" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Watch AI draw" })).toBeNull();
+    expect(
+      screen.getByRole("heading", { name: "Use with ChatGPT Desktop" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(/Open this page in ChatGPT's built-in browser/),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(/Ask ChatGPT to use this page's WebMCP tools/),
+    ).toBeTruthy();
+    expect(screen.getByText(/Review the amber proposal/)).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "Use with ChatGPT" }),
+    ).toBeNull();
     await new Promise((resolve) => window.setTimeout(resolve, 20));
     expect(api.updateScene).not.toHaveBeenCalled();
     expect(store.save).not.toHaveBeenCalled();
@@ -70,7 +89,34 @@ describe("Entry B product shell", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Saved");
   });
 
-  it("shows a designed empty library and an honest agent setup guide", async () => {
+  it("reveals the workspace as soon as a WebMCP tool starts", () => {
+    render(
+      <ProductShell api={makeApi() as never} store={makeStore() as never} />,
+    );
+
+    act(() =>
+      document.dispatchEvent(
+        new CustomEvent("webmcp:tool-activity", {
+          detail: { state: "running", tool: "create_shapes" },
+        }),
+      ),
+    );
+
+    expect(
+      screen.getByRole("navigation", { name: "Diagram workspace" }),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("heading", {
+        name: "Draw by hand. Shape it with your own AI.",
+      }),
+    ).toBeNull();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Agent is staging create_shapes",
+    );
+    expect(window.location.hash).toBe("#view=workspace");
+  });
+
+  it("shows a designed empty library without separate agent setup navigation", async () => {
     const api = makeApi();
     const store = makeStore();
     render(<ProductShell api={api as never} store={store as never} />);
@@ -79,9 +125,28 @@ describe("Entry B product shell", () => {
     await waitFor(() => expect(store.list).toHaveBeenCalled());
     expect(screen.getByText("Your first diagram starts here.")).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "Connect your agent" }));
-    expect(screen.getByText("LOCAL AGENT VIA CDP BRIDGE")).toBeTruthy();
-    expect(screen.getByText(/remote-debugging-port/)).toBeTruthy();
-    expect(screen.getByText("native_agent_invocation=UNPROVEN")).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "Use with ChatGPT" }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Connect your agent" }),
+    ).toBeNull();
+    expect(screen.queryByText(/remote-debugging-port/)).toBeNull();
+    expect(screen.queryByText(/chrome-devtools-mcp/)).toBeNull();
+    expect(screen.queryByText(/native_agent_invocation/)).toBeNull();
+  });
+
+  it("retires the old guide route back to the landing page", () => {
+    window.history.replaceState({}, "", "/#view=guide");
+    render(
+      <ProductShell api={makeApi() as never} store={makeStore() as never} />,
+    );
+
+    expect(
+      screen.getByRole("heading", {
+        name: "Draw by hand. Shape it with your own AI.",
+      }),
+    ).toBeTruthy();
+    expect(screen.queryByText("CHATGPT DESKTOP SITE TOOLS")).toBeNull();
   });
 });

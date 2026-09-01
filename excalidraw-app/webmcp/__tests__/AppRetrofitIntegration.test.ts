@@ -14,6 +14,7 @@ describe("Excalidraw host integration", () => {
       'import { RetrofitPanel } from "./webmcp/RetrofitPanel";',
     );
     expect(appSource).toContain("<RetrofitPanel api={excalidrawAPI}");
+    expect(appSource).not.toContain("<AppWelcomeScreen");
     expect(appSource).not.toContain(
       ["document", ["model", "Context"].join("")].join("."),
     );

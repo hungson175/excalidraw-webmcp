@@ -1,3 +1,5 @@
+import { announceWebMCPToolActivity } from "./tool_activity";
+
 import type { RetrofitController } from "./retrofit_controller";
 import type {
   PublicToolDescriptor,
@@ -21,6 +23,10 @@ type ModelContextLike = {
 
 type DocumentLike = {
   modelContext?: Partial<ModelContextLike>;
+  defaultView?: {
+    CustomEvent: typeof CustomEvent;
+  } | null;
+  dispatchEvent?: (event: Event) => boolean;
 };
 
 type RegistrationReceipt =
@@ -37,12 +43,18 @@ const fallbackInvocationSignal = () => new AbortController().signal;
 const browserDefinition = (
   descriptor: PublicToolDescriptor,
   controller: RetrofitController,
+  documentObject: DocumentLike,
 ): BrowserToolDefinition => ({
   ...descriptor,
-  execute: (args, context = {}) =>
-    controller.executeTool(descriptor.name, args, {
+  execute: async (args, context = {}) => {
+    announceWebMCPToolActivity(documentObject, {
+      state: "running",
+      tool: descriptor.name,
+    });
+    return controller.executeTool(descriptor.name, args, {
       signal: context.signal ?? fallbackInvocationSignal(),
-    }),
+    });
+  },
 });
 
 export const createWebMCPRegistration = (
@@ -80,9 +92,12 @@ export const createWebMCPRegistration = (
           const registration = new AbortController();
           registrations.set(descriptor.name, registration);
           try {
-            await registerTool!(browserDefinition(descriptor, controller), {
-              signal: registration.signal,
-            });
+            await registerTool!(
+              browserDefinition(descriptor, controller, documentObject),
+              {
+                signal: registration.signal,
+              },
+            );
             registered.push(descriptor.name);
           } catch {
             dispose();

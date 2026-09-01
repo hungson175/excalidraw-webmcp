@@ -158,6 +158,34 @@ describe("WebMCP registration bridge", () => {
     ).rejects.toMatchObject({ name: "AbortError" });
   });
 
+  it("announces tool activity to the owning document before execution", async () => {
+    const calls: Array<{ definition: Record<string, unknown> }> = [];
+    const dispatchEvent = vi.fn();
+    const registration = createWebMCPRegistration(makeController(), {
+      ...fakeDocument(async (definition) => {
+        calls.push({ definition });
+      }),
+      defaultView: window,
+      dispatchEvent,
+    });
+    await registration.ready;
+
+    const create = calls.at(-1)!.definition.execute as (
+      args: unknown,
+      context: { signal: AbortSignal },
+    ) => Promise<Record<string, unknown>>;
+    await create(
+      { shapes: [{ type: "rectangle" }] },
+      { signal: new AbortController().signal },
+    );
+
+    expect(dispatchEvent).toHaveBeenCalled();
+    expect(dispatchEvent.mock.calls[0][0]).toMatchObject({
+      type: "webmcp:tool-activity",
+      detail: { state: "running", tool: "create_shapes" },
+    });
+  });
+
   it("rolls back all earlier registrations after a partial failure", async () => {
     const signals: AbortSignal[] = [];
     let count = 0;
