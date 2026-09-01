@@ -84,6 +84,7 @@ describe("distribute_shapes", () => {
       "equalize_size",
       "distribute_shapes",
       "connect_shapes",
+      "create_shapes",
     ]);
     expect(descriptor).toMatchObject({
       annotations: { readOnlyHint: false },

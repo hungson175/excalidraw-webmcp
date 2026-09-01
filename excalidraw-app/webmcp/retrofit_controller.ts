@@ -12,6 +12,13 @@ import type {
 } from "@excalidraw/element/types";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 
+import {
+  buildCreateSkeletons,
+  CREATE_SHAPE_TYPES,
+  MAX_CREATE_LABEL,
+  MAX_CREATE_SHAPES,
+  parseCreateShapesArgs,
+} from "./create_shapes";
 import { computeEvenGaps } from "./distribute_shapes";
 import { createToolRegistry } from "./tool_registry";
 
@@ -265,6 +272,10 @@ export const createRetrofitController = (api: SceneApi) => {
     for (const id of baseIds) {
       const live = currentById.get(id);
       if (!live) {
+        const pendingAddition = pendingById.get(id);
+        if (pendingAddition && !baseVersions[id]) {
+          continue;
+        }
         return failure(
           "unsafe_retry",
           "A target changed before preview could be staged",
@@ -820,6 +831,58 @@ export const createRetrofitController = (api: SceneApi) => {
     return staged.ok ? { ...staged, connectorCount: arrows.length } : staged;
   };
 
+  const createShapes: ToolDescriptor["execute"] = async (args, context) => {
+    checkAbort(context.signal);
+    const parsed = parseCreateShapesArgs(args);
+    if (!parsed.ok) {
+      return failure("invalid_args", parsed.message);
+    }
+
+    const existing = workingMap();
+    const generated = new Set<string>();
+    const nextId = () => {
+      let id = randomId();
+      while (existing.has(id) || generated.has(id)) {
+        id = randomId();
+      }
+      generated.add(id);
+      return id;
+    };
+    const { skeletons, createdIds, idMap } = buildCreateSkeletons(
+      parsed.shapes,
+      nextId,
+    );
+    const converted = convertToExcalidrawElements(skeletons, {
+      regenerateIds: false,
+    });
+    const convertedIds = new Set<string>();
+    if (
+      existing.size + converted.length > MAX_ELEMENTS ||
+      converted.some(
+        ({ id }) =>
+          existing.has(id) || convertedIds.has(id) || !convertedIds.add(id),
+      )
+    ) {
+      return failure(
+        "unsafe_retry",
+        "The drawing is too large or generated ids collided; retry safely",
+      );
+    }
+    checkAbort(context.signal);
+    const staged = stage("create_shapes", converted, context, {
+      baseIds: [],
+      reportedIds: createdIds,
+    });
+    return staged.ok
+      ? {
+          ...staged,
+          createdIds,
+          ...(Object.keys(idMap).length ? { idMap } : {}),
+          createdCount: createdIds.length,
+        }
+      : staged;
+  };
+
   const descriptors: ToolDescriptor[] = [
     {
       name: "select_shapes",
@@ -912,6 +975,36 @@ export const createRetrofitController = (api: SceneApi) => {
       ),
       annotations: { readOnlyHint: false },
       execute: connectShapes,
+    },
+    {
+      name: "create_shapes",
+      description: "Stage labeled rectangle, ellipse, or diamond nodes.",
+      inputSchema: toolSchema(
+        {
+          shapes: {
+            type: "array",
+            minItems: 1,
+            maxItems: MAX_CREATE_SHAPES,
+            items: {
+              type: "object",
+              properties: {
+                clientId: { type: "string", pattern: SAFE_ID_RE.source },
+                type: { type: "string", enum: CREATE_SHAPE_TYPES },
+                label: { type: "string", maxLength: MAX_CREATE_LABEL },
+                x: { type: "number", minimum: -10000, maximum: 10000 },
+                y: { type: "number", minimum: -10000, maximum: 10000 },
+                width: { type: "number", minimum: 40, maximum: 800 },
+                height: { type: "number", minimum: 30, maximum: 600 },
+              },
+              required: ["type"],
+              additionalProperties: false,
+            },
+          },
+        },
+        ["shapes"],
+      ),
+      annotations: { readOnlyHint: false },
+      execute: createShapes,
     },
   ];
   const registry = createToolRegistry(descriptors);

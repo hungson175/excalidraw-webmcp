@@ -15,6 +15,7 @@ type RegistryPaletteProps = {
 type SchemaProperty = {
   type?: string;
   enum?: unknown[];
+  items?: { type?: string };
 };
 
 type ObjectSchema = {
@@ -60,11 +61,23 @@ const buildArgs = (
       continue;
     }
     if (property.type === "array") {
-      const items = raw.split(/[\n,]/).map((item) => item.trim());
-      if (items.some((item) => !item)) {
-        return { ok: false, message: `Invalid ${name} list` };
+      if (property.items?.type === "object") {
+        try {
+          const parsed = JSON.parse(raw);
+          if (!Array.isArray(parsed) || parsed.some((item) => !item)) {
+            return { ok: false, message: `Invalid ${name} JSON` };
+          }
+          args[name] = parsed;
+        } catch {
+          return { ok: false, message: `Invalid ${name} JSON` };
+        }
+      } else {
+        const items = raw.split(/[\n,]/).map((item) => item.trim());
+        if (items.some((item) => !item)) {
+          return { ok: false, message: `Invalid ${name} list` };
+        }
+        args[name] = items;
       }
-      args[name] = items;
     } else {
       args[name] = raw;
     }

@@ -77,7 +77,7 @@ const makeApi = (
 const signal = () => new AbortController().signal;
 
 describe("Excalidraw retrofit controller", () => {
-  it("publishes a bounded five-tool registry without a commit tool", () => {
+  it("publishes a bounded six-tool registry without a commit tool", () => {
     const { api } = makeApi();
     const controller = createRetrofitController(api as never);
     const descriptors = controller.listTools();
@@ -88,6 +88,7 @@ describe("Excalidraw retrofit controller", () => {
       "equalize_size",
       "distribute_shapes",
       "connect_shapes",
+      "create_shapes",
     ]);
     expect(
       descriptors.find(({ name }) => name === "select_shapes")?.annotations,

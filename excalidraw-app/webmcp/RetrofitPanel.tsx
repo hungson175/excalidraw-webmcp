@@ -158,6 +158,52 @@ export const RetrofitPanel = ({
           const height = element.height * zoom;
           const centerX = point.x + width / 2;
           const centerY = point.y + height / 2;
+          const transform = element.angle
+            ? `rotate(${element.angle * (180 / Math.PI)} ${centerX} ${centerY})`
+            : undefined;
+          if (element.type === "ellipse") {
+            return (
+              <ellipse
+                key={element.id}
+                data-ghost="true"
+                cx={centerX}
+                cy={centerY}
+                rx={width / 2}
+                ry={height / 2}
+                transform={transform}
+              />
+            );
+          }
+          if (element.type === "diamond") {
+            return (
+              <polygon
+                key={element.id}
+                data-ghost="true"
+                points={`${centerX},${point.y} ${
+                  point.x + width
+                },${centerY} ${centerX},${point.y + height} ${
+                  point.x
+                },${centerY}`}
+                transform={transform}
+              />
+            );
+          }
+          if (element.type === "text") {
+            return (
+              <text
+                key={element.id}
+                data-ghost="true"
+                x={centerX}
+                y={centerY}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fontSize={element.fontSize * zoom}
+                transform={transform}
+              >
+                {element.originalText}
+              </text>
+            );
+          }
           return (
             <rect
               key={element.id}
@@ -167,13 +213,7 @@ export const RetrofitPanel = ({
               width={width}
               height={height}
               rx={8}
-              transform={
-                element.angle
-                  ? `rotate(${
-                      element.angle * (180 / Math.PI)
-                    } ${centerX} ${centerY})`
-                  : undefined
-              }
+              transform={transform}
             />
           );
         })}
