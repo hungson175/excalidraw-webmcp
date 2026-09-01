@@ -143,6 +143,7 @@ import DebugCanvas, {
 import { useSimulatedCollaborators } from "./debugCollaborators";
 import { AIComponents } from "./components/AI";
 import { ExcalidrawPlusIframeExport } from "./ExcalidrawPlusIframeExport";
+import { RetrofitPanel } from "./webmcp/RetrofitPanel";
 
 import "./index.scss";
 
@@ -1297,6 +1298,7 @@ const ExcalidrawWrapper = () => {
           />
         )}
       </Excalidraw>
+      {excalidrawAPI && <RetrofitPanel api={excalidrawAPI} />}
     </div>
   );
 };

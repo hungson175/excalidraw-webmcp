@@ -1,0 +1,90 @@
+.webmcp-retrofit__ghosts {
+  inset: 0;
+  position: fixed;
+  z-index: 5;
+  width: 100vw;
+  height: 100vh;
+
+  rect {
+    fill: rgb(255 191 71 / 20%);
+    stroke: #e8a317;
+    stroke-dasharray: 9 6;
+    stroke-width: 3;
+    vector-effect: non-scaling-stroke;
+  }
+}
+
+.webmcp-retrofit {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 6;
+  width: min(22rem, calc(100vw - 2rem));
+  padding: 0.9rem;
+  border: 1px solid rgb(255 191 71 / 48%);
+  border-radius: 0.75rem;
+  background: rgb(18 19 22 / 94%);
+  box-shadow: 0 0.75rem 2.5rem rgb(0 0 0 / 34%);
+  color: #f7f4ed;
+  font: 13px/1.35 system-ui, sans-serif;
+
+  header,
+  .webmcp-retrofit__actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+  }
+
+  header span {
+    padding: 0.18rem 0.45rem;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+  }
+
+  .is-pending {
+    background: #e8a317;
+    color: #17130a;
+  }
+
+  .is-idle {
+    background: #343840;
+    color: #d7d9df;
+  }
+
+  p {
+    min-height: 1.2em;
+    margin: 0.6rem 0;
+    color: #d7d9df;
+  }
+
+  button {
+    min-height: 2rem;
+    padding: 0.35rem 0.7rem;
+    border: 1px solid #656b77;
+    border-radius: 0.45rem;
+    background: #292d34;
+    color: #fff;
+    cursor: pointer;
+  }
+
+  #commit-layout:not(:disabled) {
+    border-color: #e8a317;
+    background: #e8a317;
+    color: #17130a;
+    font-weight: 750;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+
+  small {
+    display: block;
+    margin-top: 0.55rem;
+    color: #aeb3bd;
+  }
+}
