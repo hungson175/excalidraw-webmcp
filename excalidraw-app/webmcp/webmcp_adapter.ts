@@ -1,0 +1,102 @@
+import type { RetrofitController } from "./retrofit_controller";
+import type {
+  PublicToolDescriptor,
+  ToolExecutionContext,
+  ToolResult,
+} from "./tool_registry";
+
+type BrowserToolDefinition = PublicToolDescriptor & {
+  execute: (
+    args: unknown,
+    context?: Partial<ToolExecutionContext>,
+  ) => Promise<ToolResult>;
+};
+
+type ModelContextLike = {
+  registerTool: (
+    definition: BrowserToolDefinition,
+    options: { signal: AbortSignal },
+  ) => Promise<void> | void;
+};
+
+type DocumentLike = {
+  modelContext?: Partial<ModelContextLike>;
+};
+
+type RegistrationReceipt =
+  | { supported: false; registered: [] }
+  | {
+      supported: true;
+      registered: string[];
+      failed?: string;
+      rolledBack?: true;
+    };
+
+const fallbackInvocationSignal = () => new AbortController().signal;
+
+const browserDefinition = (
+  descriptor: PublicToolDescriptor,
+  controller: RetrofitController,
+): BrowserToolDefinition => ({
+  ...descriptor,
+  execute: (args, context = {}) =>
+    controller.executeTool(descriptor.name, args, {
+      signal: context.signal ?? fallbackInvocationSignal(),
+    }),
+});
+
+export const createWebMCPRegistration = (
+  controller: RetrofitController,
+  documentObject: DocumentLike = globalThis.document as DocumentLike,
+) => {
+  let modelContext: Partial<ModelContextLike> | undefined;
+  try {
+    modelContext = documentObject.modelContext;
+  } catch {
+    modelContext = undefined;
+  }
+  const registerTool =
+    typeof modelContext?.registerTool === "function"
+      ? modelContext.registerTool.bind(modelContext)
+      : null;
+  const supported = registerTool !== null;
+  const registrations = new Map<string, AbortController>();
+  let disposed = false;
+
+  const dispose = () => {
+    disposed = true;
+    registrations.forEach((registration) => registration.abort());
+    registrations.clear();
+  };
+
+  const ready: Promise<RegistrationReceipt> = supported
+    ? (async () => {
+        const registered: string[] = [];
+        for (const descriptor of controller.listTools()) {
+          if (disposed) {
+            dispose();
+            return { supported: true, registered: [], rolledBack: true };
+          }
+          const registration = new AbortController();
+          registrations.set(descriptor.name, registration);
+          try {
+            await registerTool!(browserDefinition(descriptor, controller), {
+              signal: registration.signal,
+            });
+            registered.push(descriptor.name);
+          } catch {
+            dispose();
+            return {
+              supported: true,
+              registered: [],
+              failed: descriptor.name,
+              rolledBack: true,
+            };
+          }
+        }
+        return { supported: true, registered };
+      })()
+    : Promise.resolve({ supported: false, registered: [] });
+
+  return { supported, ready, dispose };
+};

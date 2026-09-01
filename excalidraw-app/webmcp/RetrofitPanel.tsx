@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 
 import { createRetrofitController } from "./retrofit_controller";
+import { createWebMCPRegistration } from "./webmcp_adapter";
 import "./RetrofitPanel.scss";
 
 import type {
@@ -31,8 +32,30 @@ export const RetrofitPanel = ({
   const [message, setMessage] = useState(
     "Agent changes stay staged until you commit.",
   );
+  const [webmcpStatus, setWebmcpStatus] = useState("WEBMCP …");
 
   useEffect(() => controller.subscribe(setSnapshot), [controller]);
+
+  useEffect(() => {
+    const registration = createWebMCPRegistration(controller);
+    let active = true;
+    void registration.ready.then((receipt) => {
+      if (!active) {
+        return;
+      }
+      setWebmcpStatus(
+        receipt.supported
+          ? receipt.registered.length === 3
+            ? "WEBMCP 3"
+            : "WEBMCP ERROR"
+          : "LOCAL ONLY",
+      );
+    });
+    return () => {
+      active = false;
+      registration.dispose();
+    };
+  }, [controller]);
 
   useEffect(() => {
     const refresh = () => refreshViewport((value) => value + 1);
@@ -113,12 +136,12 @@ export const RetrofitPanel = ({
       <aside className="webmcp-retrofit" aria-label="Agent layout preview">
         <header>
           <strong>Agent layout</strong>
-          <span
-            className={snapshot.pending ? "is-pending" : "is-idle"}
-            aria-live="polite"
-          >
-            {snapshot.pending ? "UNCOMMITTED" : "READY"}
-          </span>
+          <div className="webmcp-retrofit__status" aria-live="polite">
+            <span className="is-idle">{webmcpStatus}</span>
+            <span className={snapshot.pending ? "is-pending" : "is-idle"}>
+              {snapshot.pending ? "UNCOMMITTED" : "READY"}
+            </span>
+          </div>
         </header>
         <p>
           {snapshot.pending
