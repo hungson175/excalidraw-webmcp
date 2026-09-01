@@ -1,3 +1,53 @@
+# Draw with your agent
+
+A whiteboard you draw on by hand, that your own AI agent can also draw on — at the same time, in the
+same tab, without an API key or an account.
+
+**Live:** <https://hungson175.github.io/excalidraw-webmcp/>
+
+## What it does
+
+Open it and draw, exactly like Excalidraw, because it is Excalidraw. Then point your own agent at the
+page and ask for something — a diagram of an architecture you describe, six boxes aligned and wired
+to a gateway, arrows anchored where they should be. The agent's work arrives **staged**: ghosted
+outlines and a listed set of operations. Nothing is real until you commit it, and the agent cannot
+commit it for you. You keep drawing by hand the whole time; it never takes your cursor.
+
+Your diagrams stay in your browser. There is no server, no sign-up, and nothing to configure.
+
+## How your agent reaches it
+
+The page publishes its drawing operations through [WebMCP](https://github.com/webmachinelearning/webmcp)
+— `document.modelContext.registerTool` — so any agent that speaks WebMCP can discover and call them.
+No key is ever minted, because the tool runs inside your own session in your own tab.
+
+The simplest route today: open the ChatGPT desktop app, choose Codex on **GPT-5.6 Sol or Terra**
+(Luna has WebMCP disabled), and in its built-in browser open the live URL and ask it to draw.
+
+## Why this needs WebMCP
+
+A whiteboard is a canvas: one node in the DOM and one in the accessibility tree, with **zero**
+individually addressable shapes inside it. An agent working from screenshots is not slow here, it is
+blind — it can only guess pixel coordinates. The page, by contrast, holds the real scene graph, so
+it can offer operations over actual shapes. That is what it publishes.
+
+## Status
+
+Built for the OpenAI WebMCP hackathon, September 2026, and kept as a product afterwards. Storage is
+local-first behind a single interface so a server with real sign-in can be added without a rewrite.
+
+Native browser-agent invocation is **unproven** and is not claimed anywhere in the product; what is
+verified is browser-API discovery and execution. [RETROFIT.md](./RETROFIT.md) records the upstream
+diff, the build window, the browser proof, the safety boundary, and the limits of every claim.
+
+## Credit
+
+This is a fork of [Excalidraw](https://github.com/excalidraw/excalidraw), MIT licensed, whose editor
+does all the drawing. The WebMCP tool surface, the staging gate and the product shell are the
+additions. Upstream's own README follows.
+
+---
+
 <a href="https://excalidraw.com/" target="_blank" rel="noopener">
   <picture>
     <source media="(prefers-color-scheme: dark)" alt="Excalidraw" srcset="https://excalidraw.nyc3.cdn.digitaloceanspaces.com/github/excalidraw_github_cover_2_dark.png" />
@@ -5,9 +55,6 @@
   </picture>
 </a>
 
-## WebMCP retrofit demo
-
-This fork adds a staged, human-approved WebMCP tool surface to the existing Excalidraw editor. [WebMCP retrofit evidence](./RETROFIT.md) records the exact upstream diff, elapsed build window, public browser proof, safety boundary, and claim limitations.
 
 <h4 align="center">
   <a href="https://excalidraw.com">Excalidraw Editor</a> |
