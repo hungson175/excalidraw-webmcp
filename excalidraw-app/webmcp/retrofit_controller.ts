@@ -12,7 +12,10 @@ import type {
 } from "@excalidraw/element/types";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 
+import { computeEvenGaps } from "./distribute_shapes";
 import { createToolRegistry } from "./tool_registry";
+
+import type { DistributeAxis, DistributeGeometry } from "./distribute_shapes";
 
 import type {
   PublicToolDescriptor,
@@ -46,6 +49,7 @@ const ALIGN_EDGES = new Set([
 const ALIGN_TARGETS = new Set(["selection", "canvas", "first"]);
 const DIMENSIONS = new Set(["width", "height"]);
 const SIZE_MODES = new Set(["max", "min", "first", "average"]);
+const DISTRIBUTE_AXES = new Set<DistributeAxis>(["horizontal", "vertical"]);
 const BINDABLE_TYPES = new Set(["rectangle", "diamond", "ellipse"]);
 
 type SceneApi = Pick<
@@ -570,6 +574,79 @@ export const createRetrofitController = (api: SceneApi) => {
     );
   };
 
+  const distributeShapes: ToolDescriptor["execute"] = async (args, context) => {
+    checkAbort(context.signal);
+    if (!isRecord(args) || !hasOnlyKeys(args, ["ids", "axis"])) {
+      return failure("invalid_args", "Use only ids and axis");
+    }
+    if (
+      typeof args.axis !== "string" ||
+      !DISTRIBUTE_AXES.has(args.axis as DistributeAxis)
+    ) {
+      return failure("invalid_args", "axis must be horizontal or vertical");
+    }
+    if (Array.isArray(args.ids) && new Set(args.ids).size !== args.ids.length) {
+      return failure("invalid_args", "ids must not contain duplicates");
+    }
+
+    const targets = resolveTargets(args.ids);
+    if (!Array.isArray(targets)) {
+      return targets;
+    }
+    if (targets.length < 3) {
+      return failure(
+        "unsafe_retry",
+        "Distribution needs at least three shapes",
+      );
+    }
+
+    const axis = args.axis as DistributeAxis;
+    const position = axis === "horizontal" ? "x" : "y";
+    const geometries = targets
+      .map(
+        (target): DistributeGeometry => ({
+          id: target.id,
+          x: target.x,
+          y: target.y,
+          width: target.width,
+          height: target.height,
+        }),
+      )
+      .sort(
+        (left, right) =>
+          left[position] - right[position] || left.id.localeCompare(right.id),
+      );
+    const distribution = computeEvenGaps(geometries, axis);
+    if ("reason" in distribution) {
+      return failure("unsafe_retry", distribution.message);
+    }
+
+    const byId = new Map(targets.map((target) => [target.id, target]));
+    const changed = distribution.positioned.filter((geometry) => {
+      const target = byId.get(geometry.id)!;
+      return Math.abs(geometry[position] - target[position]) > 1e-6;
+    });
+    if (!changed.length) {
+      return failure("unsafe_retry", "Gaps are already even");
+    }
+    checkAbort(context.signal);
+    return stage(
+      "distribute_shapes",
+      changed.map((geometry) => {
+        const target = byId.get(geometry.id)!;
+        return newElementWith(target, {
+          x: geometry.x,
+          y: geometry.y,
+        });
+      }),
+      context,
+      {
+        baseIds: targets.map(({ id }) => id),
+        reportedIds: changed.map(({ id }) => id),
+      },
+    );
+  };
+
   const connectShapes: ToolDescriptor["execute"] = async (args, context) => {
     checkAbort(context.signal);
     if (!isRecord(args) || !hasOnlyKeys(args, ["sourceIds", "targetId"])) {
@@ -797,6 +874,24 @@ export const createRetrofitController = (api: SceneApi) => {
       ),
       annotations: { readOnlyHint: false },
       execute: equalizeSize,
+    },
+    {
+      name: "distribute_shapes",
+      description:
+        "Stage even gaps between shapes along one axis without changing the live drawing.",
+      inputSchema: toolSchema(
+        {
+          ids: {
+            type: "array",
+            items: { type: "string" },
+            maxItems: MAX_ELEMENTS,
+          },
+          axis: { type: "string", enum: Array.from(DISTRIBUTE_AXES) },
+        },
+        ["axis"],
+      ),
+      annotations: { readOnlyHint: false },
+      execute: distributeShapes,
     },
     {
       name: "connect_shapes",

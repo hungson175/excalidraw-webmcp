@@ -45,8 +45,8 @@ describe("RetrofitPanel WebMCP lifecycle", () => {
     };
 
     const view = render(<RetrofitPanel api={api as never} />);
-    await waitFor(() => expect(screen.getByText("WEBMCP 4")).toBeTruthy());
-    expect(signals).toHaveLength(4);
+    await waitFor(() => expect(screen.getByText("WEBMCP 5")).toBeTruthy());
+    expect(signals).toHaveLength(5);
     expect(signals.every((signal) => !signal.aborted)).toBe(true);
 
     view.unmount();
