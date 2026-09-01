@@ -1,0 +1,36 @@
+{
+  "pinned_base": "e1bb9ff8f8931e783c11d104abb8967ac6605c9a",
+  "public_head": "59ca15861bde265f74d6785a0e4383b05fdc0caf",
+  "categories": {
+    "production": [
+      "excalidraw-app/App.tsx",
+      "excalidraw-app/index.html",
+      "excalidraw-app/vite.config.mts",
+      "excalidraw-app/webmcp/RetrofitPanel.scss",
+      "excalidraw-app/webmcp/RetrofitPanel.tsx",
+      "excalidraw-app/webmcp/retrofit_controller.ts",
+      "excalidraw-app/webmcp/tool_registry.ts",
+      "excalidraw-app/webmcp/webmcp_adapter.ts"
+    ],
+    "test": [
+      "excalidraw-app/webmcp/__tests__/AppRetrofitIntegration.test.ts",
+      "excalidraw-app/webmcp/__tests__/RetrofitPanel.test.tsx",
+      "excalidraw-app/webmcp/__tests__/WebMCPPanelRegistration.test.tsx",
+      "excalidraw-app/webmcp/__tests__/connect_ghost.test.tsx",
+      "excalidraw-app/webmcp/__tests__/connect_shapes.test.ts",
+      "excalidraw-app/webmcp/__tests__/origin_trial_meta.test.ts",
+      "excalidraw-app/webmcp/__tests__/retrofit_controller.test.ts",
+      "excalidraw-app/webmcp/__tests__/webmcp_adapter.test.ts"
+    ],
+    "spike": ["spike-tests/base-path.test.mjs"]
+  },
+  "observed_wall_clock": {
+    "start": "2026-09-01T08:51:00+07:00",
+    "end": "2026-09-01T10:18:00+07:00",
+    "minutes": 87,
+    "label": "agent-assisted elapsed time"
+  },
+  "word_limit": 900,
+  "repository_url": "https://github.com/hungson175/excalidraw-webmcp",
+  "live_url": "https://hungson175.github.io/excalidraw-webmcp/"
+}

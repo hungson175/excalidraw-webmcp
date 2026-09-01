@@ -5,6 +5,10 @@
   </picture>
 </a>
 
+## WebMCP retrofit demo
+
+This fork adds a staged, human-approved WebMCP tool surface to the existing Excalidraw editor. [WebMCP retrofit evidence](./RETROFIT.md) records the exact upstream diff, elapsed build window, public browser proof, safety boundary, and claim limitations.
+
 <h4 align="center">
   <a href="https://excalidraw.com">Excalidraw Editor</a> |
   <a href="https://plus.excalidraw.com/blog">Blog</a> |
