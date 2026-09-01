@@ -161,5 +161,8 @@ describe("RecordingHud", () => {
     expect(styles).toMatch(/\.webmcp-film-clock[\s\S]*font-size:\s*48px/);
     expect(styles).toMatch(/\.webmcp-film-card strong[\s\S]*font-size:\s*32px/);
     expect(styles).toMatch(/font-variant-numeric:\s*tabular-nums/);
+    expect(styles).toMatch(
+      /grid-template-columns:\s*repeat\(5,\s*minmax\(0,\s*1fr\)\)/,
+    );
   });
 });
