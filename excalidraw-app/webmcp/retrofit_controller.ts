@@ -3,14 +3,20 @@ import {
   convertToExcalidrawElements,
 } from "@excalidraw/excalidraw";
 import { randomId } from "@excalidraw/common";
-import { newElementWith } from "@excalidraw/element";
+import {
+  intersectElementWithLineSegment,
+  newElementWith,
+} from "@excalidraw/element";
+import { lineSegment, pointFrom } from "@excalidraw/math";
 
 import type { ExcalidrawElementSkeleton } from "@excalidraw/element";
 import type {
+  ElementsMap,
   ExcalidrawArrowElement,
   ExcalidrawElement,
 } from "@excalidraw/element/types";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
+import type { GlobalPoint } from "@excalidraw/math";
 
 import {
   buildCreateSkeletons,
@@ -58,6 +64,38 @@ const DIMENSIONS = new Set(["width", "height"]);
 const SIZE_MODES = new Set(["max", "min", "first", "average"]);
 const DISTRIBUTE_AXES = new Set<DistributeAxis>(["horizontal", "vertical"]);
 const BINDABLE_TYPES = new Set(["rectangle", "diamond", "ellipse"]);
+
+const connectorBoundaryPoint = (
+  element: ExcalidrawElement,
+  direction: readonly [number, number],
+  elementsMap: ElementsMap,
+): GlobalPoint | null => {
+  const center = pointFrom<GlobalPoint>(
+    element.x + element.width / 2,
+    element.y + element.height / 2,
+  );
+  const directionLength = Math.hypot(direction[0], direction[1]);
+  const unitX = directionLength > 1e-6 ? direction[0] / directionLength : 1;
+  const unitY = directionLength > 1e-6 ? direction[1] / directionLength : 0;
+  const rayLength = Math.hypot(element.width, element.height) + 1;
+  const rayEnd = pointFrom<GlobalPoint>(
+    center[0] + unitX * rayLength,
+    center[1] + unitY * rayLength,
+  );
+  const intersections = intersectElementWithLineSegment(
+    element,
+    elementsMap,
+    lineSegment(center, rayEnd),
+  );
+
+  return (
+    intersections.sort(
+      (first, second) =>
+        Math.hypot(first[0] - center[0], first[1] - center[1]) -
+        Math.hypot(second[0] - center[0], second[1] - center[1]),
+    )[0] ?? null
+  );
+};
 
 type SceneApi = Pick<
   ExcalidrawImperativeAPI,
@@ -742,26 +780,41 @@ export const createRetrofitController = (api: SceneApi) => {
       arrowIds.add(id);
       return id;
     };
-    const arrowSkeletons: ExcalidrawElementSkeleton[] = sourceElements.map(
-      (source) => {
-        const sourceX = source.x + source.width / 2;
-        const sourceY = source.y + source.height / 2;
-        const targetX = target.x + target.width / 2;
-        const targetY = target.y + target.height / 2;
-        return {
-          id: nextArrowId(),
-          type: "arrow",
-          x: sourceX,
-          y: sourceY,
-          width: targetX - sourceX,
-          height: targetY - sourceY,
-          strokeColor: "#e8a317",
-          endArrowhead: "arrow",
-          start: { id: source.id },
-          end: { id: target.id },
-        };
-      },
-    );
+    const arrowSkeletons: ExcalidrawElementSkeleton[] = [];
+    for (const source of sourceElements) {
+      const sourceCenterX = source.x + source.width / 2;
+      const sourceCenterY = source.y + source.height / 2;
+      const targetCenterX = target.x + target.width / 2;
+      const targetCenterY = target.y + target.height / 2;
+      const deltaX = targetCenterX - sourceCenterX;
+      const deltaY = targetCenterY - sourceCenterY;
+      const direction: readonly [number, number] =
+        Math.hypot(deltaX, deltaY) > 1e-6 ? [deltaX, deltaY] : [1, 0];
+      const startPoint = connectorBoundaryPoint(source, direction, map);
+      const endPoint = connectorBoundaryPoint(
+        target,
+        [-direction[0], -direction[1]],
+        map,
+      );
+      if (!startPoint || !endPoint) {
+        return failure(
+          "unsafe_retry",
+          "A connector boundary could not be calculated safely",
+        );
+      }
+      arrowSkeletons.push({
+        id: nextArrowId(),
+        type: "arrow",
+        x: startPoint[0],
+        y: startPoint[1],
+        width: endPoint[0] - startPoint[0],
+        height: endPoint[1] - startPoint[1],
+        strokeColor: "#e8a317",
+        endArrowhead: "arrow",
+        start: { id: source.id },
+        end: { id: target.id },
+      });
+    }
     const involved = [...sourceElements, target];
     const skeletons: ExcalidrawElementSkeleton[] = [
       ...involved.map(

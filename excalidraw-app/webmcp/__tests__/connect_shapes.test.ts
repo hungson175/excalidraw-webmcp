@@ -90,6 +90,38 @@ const makeApi = (initial = fixtureElements()) => {
 
 const signal = () => new AbortController().signal;
 
+type Point = readonly [number, number];
+
+const absoluteArrowEndpoint = (
+  arrow: ExcalidrawArrowElement,
+  end: "start" | "end",
+): Point => {
+  const point = arrow.points[end === "start" ? 0 : arrow.points.length - 1];
+  return [arrow.x + point[0], arrow.y + point[1]];
+};
+
+const boundaryRatio = (shape: TestElement, point: Point) => {
+  const centerX = shape.x + shape.width / 2;
+  const centerY = shape.y + shape.height / 2;
+  const deltaX = point[0] - centerX;
+  const deltaY = point[1] - centerY;
+  const cos = Math.cos(shape.angle);
+  const sin = Math.sin(shape.angle);
+  const localX = cos * deltaX + sin * deltaY;
+  const localY = -sin * deltaX + cos * deltaY;
+  const normalizedX = Math.abs(localX) / (shape.width / 2);
+  const normalizedY = Math.abs(localY) / (shape.height / 2);
+
+  switch (shape.type) {
+    case "ellipse":
+      return Math.hypot(normalizedX, normalizedY);
+    case "diamond":
+      return normalizedX + normalizedY;
+    default:
+      return Math.max(normalizedX, normalizedY);
+  }
+};
+
 describe("connect_shapes", () => {
   it("publishes a strict bounded fourth tool without a commit alias", () => {
     const { api } = makeApi();
@@ -262,6 +294,59 @@ describe("connect_shapes", () => {
           (arrow.points?.length ?? 0) >= 2,
       ),
     ).toBe(true);
+  });
+
+  it("anchors connector endpoints on rotated shape boundaries instead of their centers", async () => {
+    const rectangle = {
+      ...element("rectangle-source", 20, 20, 120, 70),
+      angle: Math.PI / 7,
+    };
+    const diamond = {
+      ...element("diamond-source", 40, 260, 110, 90, "diamond"),
+      angle: -Math.PI / 9,
+    };
+    const ellipse = {
+      ...element("ellipse-target", 520, 130, 150, 100, "ellipse"),
+      angle: Math.PI / 11,
+    };
+    const fixture = makeApi([rectangle, diamond, ellipse]);
+    const controller = createRetrofitController(fixture.api as never);
+
+    await expect(
+      controller.executeTool(
+        "connect_shapes",
+        {
+          sourceIds: [rectangle.id, diamond.id],
+          targetId: ellipse.id,
+        },
+        { signal: signal() },
+      ),
+    ).resolves.toMatchObject({ ok: true, connectorCount: 2 });
+
+    const pending = controller.getSnapshot().pending;
+    const arrows = pending?.elements.filter(
+      (candidate): candidate is ExcalidrawArrowElement =>
+        candidate.type === "arrow",
+    );
+    expect(arrows).toHaveLength(2);
+
+    const shapes = new Map(
+      [rectangle, diamond, ellipse].map((shape) => [shape.id, shape]),
+    );
+    for (const arrow of arrows ?? []) {
+      const source = shapes.get(arrow.startBinding!.elementId)!;
+      const target = shapes.get(arrow.endBinding!.elementId)!;
+
+      expect(
+        boundaryRatio(source, absoluteArrowEndpoint(arrow, "start")),
+      ).toBeCloseTo(1, 1);
+      expect(
+        boundaryRatio(target, absoluteArrowEndpoint(arrow, "end")),
+      ).toBeCloseTo(1, 1);
+      expect(arrow.startBinding?.fixedPoint).not.toEqual([0.5, 0.5]);
+      expect(arrow.endBinding?.fixedPoint).not.toEqual([0.5, 0.5]);
+    }
+    expect(fixture.updateScene).not.toHaveBeenCalled();
   });
 
   it("commits bound arrows and mirrored container references atomically", async () => {
