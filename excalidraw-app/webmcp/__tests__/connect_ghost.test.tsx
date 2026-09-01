@@ -82,7 +82,9 @@ describe("connector ghost preview", () => {
 
     await waitFor(() => expect(screen.getByText("LOCAL ONLY")).toBeTruthy());
     expect(screen.getByText("UNCOMMITTED")).toBeTruthy();
-    expect(screen.getByText(/connect_shapes/)).toBeTruthy();
+    expect(
+      container.querySelector(".webmcp-retrofit > p")?.textContent,
+    ).toContain("connect_shapes");
     const connectors = container.querySelectorAll(
       "[data-ghost-connector='true']",
     );

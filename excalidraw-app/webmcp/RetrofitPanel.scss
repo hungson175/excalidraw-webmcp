@@ -105,3 +105,138 @@
     color: #aeb3bd;
   }
 }
+
+.webmcp-retrofit__command-row {
+  margin: 0.55rem 0;
+}
+
+.webmcp-retrofit__ledger {
+  max-height: 8.5rem;
+  margin-bottom: 0.65rem;
+  overflow: auto;
+  color: #d7d9df;
+
+  ol {
+    margin: 0.35rem 0 0;
+    padding-left: 1.4rem;
+  }
+
+  li {
+    margin-bottom: 0.2rem;
+    overflow-wrap: anywhere;
+  }
+}
+
+.webmcp-registry-palette__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 12;
+  display: grid;
+  align-items: start;
+  justify-items: center;
+  padding: min(12vh, 6rem) 1rem 1rem;
+  background: rgb(0 0 0 / 58%);
+}
+
+.webmcp-registry-palette {
+  width: min(46rem, 100%);
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+  border: 1px solid rgb(255 191 71 / 65%);
+  border-radius: 0.8rem;
+  background: #121316;
+  box-shadow: 0 1rem 4rem rgb(0 0 0 / 55%);
+  color: #f7f4ed;
+  font: 14px/1.4 system-ui, sans-serif;
+
+  header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem;
+    border-bottom: 1px solid #343840;
+  }
+
+  header small {
+    display: block;
+    margin-top: 0.2rem;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+}
+
+.webmcp-registry-palette__body {
+  display: grid;
+  grid-template-columns: minmax(11rem, 0.8fr) minmax(18rem, 1.4fr);
+  gap: 1rem;
+  padding: 1rem;
+
+  nav {
+    display: grid;
+    align-content: start;
+    gap: 0.35rem;
+  }
+
+  nav button[aria-pressed="true"] {
+    border-color: #e8a317;
+    background: #493814;
+  }
+
+  form,
+  label {
+    display: grid;
+    gap: 0.35rem;
+  }
+
+  form {
+    gap: 0.75rem;
+  }
+
+  form p {
+    min-height: 0;
+    margin: 0;
+  }
+
+  input,
+  select,
+  textarea {
+    width: 100%;
+    min-height: 2.25rem;
+    box-sizing: border-box;
+    padding: 0.45rem 0.55rem;
+    border: 1px solid #656b77;
+    border-radius: 0.4rem;
+    background: #202329;
+    color: #fff;
+  }
+
+  textarea {
+    min-height: 4rem;
+    resize: vertical;
+  }
+
+  output {
+    min-height: 2.5rem;
+    max-height: 7rem;
+    overflow: auto;
+    overflow-wrap: anywhere;
+    color: #d7d9df;
+    white-space: pre-wrap;
+  }
+}
+
+@media (max-width: 600px) {
+  .webmcp-registry-palette__backdrop {
+    padding-top: 1rem;
+  }
+
+  .webmcp-registry-palette__body {
+    grid-template-columns: 1fr;
+  }
+}

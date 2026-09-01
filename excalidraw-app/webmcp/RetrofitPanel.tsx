@@ -5,6 +5,7 @@ import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 
 import { createRetrofitController } from "./retrofit_controller";
 import { createWebMCPRegistration } from "./webmcp_adapter";
+import { RegistryPalette } from "./RegistryPalette";
 import "./RetrofitPanel.scss";
 
 import type {
@@ -192,6 +193,7 @@ export const RetrofitPanel = ({
               } shapes · ${snapshot.pending.operations.join(" → ")}`
             : `${snapshot.selectedIds.length} shapes selected`}
         </p>
+        <RegistryPalette controller={controller} snapshot={snapshot} />
         <div className="webmcp-retrofit__actions">
           <button
             id="commit-layout"
