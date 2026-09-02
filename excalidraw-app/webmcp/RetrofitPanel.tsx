@@ -53,7 +53,7 @@ export const RetrofitPanel = ({
       setWebmcpStatus(
         receipt.supported
           ? receipt.registered.length === controller.listTools().length
-            ? `WEBMCP ${receipt.registered.length}`
+            ? "WEBMCP READY"
             : "WEBMCP ERROR"
           : "LOCAL ONLY",
       );

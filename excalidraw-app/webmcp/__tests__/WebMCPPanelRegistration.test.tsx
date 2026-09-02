@@ -17,7 +17,7 @@ afterEach(() => {
 });
 
 describe("RetrofitPanel WebMCP lifecycle", () => {
-  it("shows the exact registered count and aborts registrations on unmount", async () => {
+  it("shows readiness without a misleading partial count and aborts on unmount", async () => {
     const signals: AbortSignal[] = [];
     Object.defineProperty(document, "modelContext", {
       configurable: true,
@@ -45,7 +45,7 @@ describe("RetrofitPanel WebMCP lifecycle", () => {
     };
 
     const view = render(<RetrofitPanel api={api as never} />);
-    await waitFor(() => expect(screen.getByText("WEBMCP 6")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("WEBMCP READY")).toBeTruthy());
     expect(signals).toHaveLength(6);
     expect(signals.every((signal) => !signal.aborted)).toBe(true);
 

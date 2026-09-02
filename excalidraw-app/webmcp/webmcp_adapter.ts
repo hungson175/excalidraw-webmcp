@@ -1,11 +1,19 @@
 import { announceWebMCPToolActivity } from "./tool_activity";
 
-import type { RetrofitController } from "./retrofit_controller";
 import type {
   PublicToolDescriptor,
   ToolExecutionContext,
   ToolResult,
 } from "./tool_registry";
+
+export type WebMCPToolController = {
+  listTools: () => PublicToolDescriptor[];
+  executeTool: (
+    name: string,
+    args: unknown,
+    context: ToolExecutionContext,
+  ) => Promise<ToolResult>;
+};
 
 type BrowserToolDefinition = PublicToolDescriptor & {
   execute: (
@@ -42,7 +50,7 @@ const fallbackInvocationSignal = () => new AbortController().signal;
 
 const browserDefinition = (
   descriptor: PublicToolDescriptor,
-  controller: RetrofitController,
+  controller: WebMCPToolController,
   documentObject: DocumentLike,
 ): BrowserToolDefinition => ({
   ...descriptor,
@@ -58,7 +66,7 @@ const browserDefinition = (
 });
 
 export const createWebMCPRegistration = (
-  controller: RetrofitController,
+  controller: WebMCPToolController,
   documentObject: DocumentLike = globalThis.document as DocumentLike,
 ) => {
   let modelContext: Partial<ModelContextLike> | undefined;

@@ -18,7 +18,9 @@ import {
   WEBMCP_TOOL_ACTIVITY_EVENT,
   type WebMCPToolActivity,
 } from "../tool_activity";
+import { createWebMCPRegistration } from "../webmcp_adapter";
 
+import { createCanvasToolController } from "./canvas_tools";
 import {
   getLocalDiagramStore,
   type DiagramStore,
@@ -91,6 +93,8 @@ export const ProductShell = ({
   const [promptCopied, setPromptCopied] = useState(false);
   const importedShare = useRef<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const metadataRef = useRef<{ id?: string; name: string }>({ name });
+  metadataRef.current = { id: currentId, name };
 
   const go = useCallback((next: ProductView) => {
     const params = new URLSearchParams();
@@ -108,6 +112,37 @@ export const ProductShell = ({
     setView(next);
     setStatus("Ready");
   }, []);
+
+  const canvasToolController = useMemo(
+    () =>
+      createCanvasToolController({
+        api,
+        store,
+        getMetadata: () => metadataRef.current,
+        setMetadata: (metadata) => {
+          setCurrentId(metadata.id);
+          setName(metadata.name);
+        },
+        setStatus,
+        showWorkspace: () => go("workspace"),
+      }),
+    [api, go, store],
+  );
+
+  useEffect(() => {
+    const ownerDocument = rootRef.current?.ownerDocument;
+    if (!ownerDocument) {
+      return;
+    }
+    const registration = createWebMCPRegistration(
+      canvasToolController,
+      ownerDocument,
+    );
+    return () => {
+      registration.dispose();
+      canvasToolController.dispose();
+    };
+  }, [canvasToolController]);
 
   useEffect(() => {
     const routeChanged = () => setView(readRoute().view);

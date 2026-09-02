@@ -5,9 +5,17 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ProductShell } from "../product/ProductShell";
+
+type RegisteredDefinition = {
+  name: string;
+  execute: (args: unknown) => Promise<unknown>;
+};
+
+const originalModelContext = (document as Document & { modelContext?: unknown })
+  .modelContext;
 
 const makeApi = () => ({
   getSceneElements: vi.fn(() => []),
@@ -35,6 +43,13 @@ const makeStore = () => ({
 
 describe("Entry B product shell", () => {
   beforeEach(() => window.history.replaceState({}, "", "/"));
+
+  afterEach(() => {
+    Object.defineProperty(document, "modelContext", {
+      configurable: true,
+      value: originalModelContext,
+    });
+  });
 
   it("opens the plain URL directly on the canvas without mutating it", async () => {
     const api = makeApi();
@@ -98,6 +113,50 @@ describe("Entry B product shell", () => {
     expect(screen.getByRole("button", { name: "Prompt copied" })).toBeTruthy();
     expect(screen.getByText("Copied")).toBeTruthy();
     expect(screen.getByRole("status")).toHaveTextContent("Prompt copied");
+  });
+
+  it("registers the canvas lifecycle tools and removes them on unmount", async () => {
+    const definitions: RegisteredDefinition[] = [];
+    const signals: AbortSignal[] = [];
+    Object.defineProperty(document, "modelContext", {
+      configurable: true,
+      value: {
+        registerTool: vi.fn(
+          async (
+            definition: RegisteredDefinition,
+            options: { signal: AbortSignal },
+          ) => {
+            definitions.push(definition);
+            signals.push(options.signal);
+          },
+        ),
+      },
+    });
+    const view = render(
+      <ProductShell api={makeApi() as never} store={makeStore() as never} />,
+    );
+
+    await waitFor(() => expect(definitions).toHaveLength(5));
+    expect(definitions.map(({ name }) => name)).toEqual([
+      "get_canvas_state",
+      "list_saved_canvases",
+      "save_canvas",
+      "create_canvas",
+      "open_saved_canvas",
+    ]);
+    let state: unknown;
+    await act(async () => {
+      state = await definitions[0].execute({});
+    });
+    expect(state).toMatchObject({
+      ok: true,
+      name: "Untitled diagram",
+      elementCount: 0,
+    });
+    expect(signals.every((signal) => !signal.aborted)).toBe(true);
+
+    view.unmount();
+    expect(signals.every((signal) => signal.aborted)).toBe(true);
   });
 
   it("returns from the library as soon as a WebMCP tool starts", async () => {

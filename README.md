@@ -24,6 +24,19 @@ No key is ever minted, because the tool runs inside your own session in your own
 The simplest route today: open the ChatGPT desktop app, choose Codex on **GPT-5.6 Sol or Terra**
 (Luna has WebMCP disabled), and in its built-in browser open the live URL and ask it to draw.
 
+### WebMCP tool surface
+
+The page exposes small tools that agents can compose:
+
+- Canvas lifecycle: `get_canvas_state`, `list_saved_canvases`, `save_canvas`, `create_canvas`,
+  and `open_saved_canvas`.
+- Diagram editing: `select_shapes`, `create_shapes`, `align_shapes`, `equalize_size`,
+  `distribute_shapes`, and `connect_shapes`.
+
+Lifecycle tools use the same local-first store as the visible product UI. Creating a blank canvas or
+opening another saved canvas preserves the current work locally before switching. Diagram edits stay
+staged until the human clicks **Commit layout**.
+
 ## Why this needs WebMCP
 
 A whiteboard is a canvas: one node in the DOM and one in the accessibility tree, with **zero**
