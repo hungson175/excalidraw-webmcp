@@ -36,48 +36,30 @@ const makeStore = () => ({
 describe("Entry B product shell", () => {
   beforeEach(() => window.history.replaceState({}, "", "/"));
 
-  it("makes the plain URL understandable without mutating the drawing", async () => {
+  it("opens the plain URL directly on the canvas without mutating it", async () => {
     const api = makeApi();
     const store = makeStore();
     render(<ProductShell api={api as never} store={store as never} />);
 
     expect(
-      screen.getByRole("heading", {
-        name: "Draw by hand. Shape it with your own AI.",
-      }),
+      screen.getByRole("navigation", { name: "Diagram workspace" }),
     ).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Start drawing" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Start drawing" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Watch AI draw" })).toBeNull();
     expect(
-      screen.getByRole("heading", { name: "Try this WebMCP demo" }),
+      screen.getByRole("button", { name: "Copy demo prompt" }),
     ).toBeTruthy();
-    expect(screen.getByText("Open the ChatGPT Desktop app.")).toBeTruthy();
-    expect(
-      screen.getByText("Open Codex and select Sol or Terra."),
-    ).toBeTruthy();
-    expect(screen.getByText("Paste this prompt:")).toBeTruthy();
-    expect(
-      screen.getByText(
-        /Learn about WebMCP, then open this website: https:\/\/hungson175\.github\.io\/excalidraw-webmcp\//,
-      ),
-    ).toBeTruthy();
-    expect(
-      screen.getByText(/Wait while it draws.*Commit layout.*edit.*by hand/i),
-    ).toBeTruthy();
-    expect(
-      screen.queryByRole("button", { name: "Use with ChatGPT" }),
-    ).toBeNull();
+    expect(screen.queryByText("Try this WebMCP demo")).toBeNull();
     await new Promise((resolve) => window.setTimeout(resolve, 20));
     expect(api.updateScene).not.toHaveBeenCalled();
     expect(store.save).not.toHaveBeenCalled();
   });
 
-  it("enters the full workspace and saves through the one store seam", async () => {
+  it("saves from the immediately available workspace through one store seam", async () => {
     const api = makeApi();
     const store = makeStore();
     render(<ProductShell api={api as never} store={store as never} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Start drawing" }));
     expect(
       screen.getByRole("navigation", { name: "Diagram workspace" }),
     ).toBeTruthy();
@@ -95,10 +77,35 @@ describe("Entry B product shell", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Saved");
   });
 
-  it("reveals the workspace as soon as a WebMCP tool starts", () => {
+  it("copies the complete LinkedIn demo prompt from the workspace toolbar", async () => {
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(window.navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
     render(
       <ProductShell api={makeApi() as never} store={makeStore() as never} />,
     );
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy demo prompt" }));
+
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith(
+        "Learn about WebMCP, then open this website: https://hungson175.github.io/excalidraw-webmcp/ — using your own built-in browser and WebMCP, create a diagram that explains the concept of WebMCP to me.",
+      ),
+    );
+    expect(screen.getByRole("button", { name: "Prompt copied" })).toBeTruthy();
+    expect(screen.getByRole("status")).toHaveTextContent("Prompt copied");
+  });
+
+  it("returns from the library as soon as a WebMCP tool starts", async () => {
+    render(
+      <ProductShell api={makeApi() as never} store={makeStore() as never} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Your diagrams" }));
+    expect(
+      await screen.findByText("Your first diagram starts here."),
+    ).toBeTruthy();
 
     act(() =>
       document.dispatchEvent(
@@ -111,22 +118,17 @@ describe("Entry B product shell", () => {
     expect(
       screen.getByRole("navigation", { name: "Diagram workspace" }),
     ).toBeTruthy();
-    expect(
-      screen.queryByRole("heading", {
-        name: "Draw by hand. Shape it with your own AI.",
-      }),
-    ).toBeNull();
+    expect(screen.queryByText("Your first diagram starts here.")).toBeNull();
     expect(screen.getByRole("status")).toHaveTextContent(
       "Agent is staging create_shapes",
     );
-    expect(window.location.hash).toBe("#view=workspace");
+    expect(window.location.hash).toBe("");
   });
 
   it("shows a designed empty library without separate agent setup navigation", async () => {
     const api = makeApi();
     const store = makeStore();
     render(<ProductShell api={api as never} store={store as never} />);
-    fireEvent.click(screen.getByRole("button", { name: "Start drawing" }));
     fireEvent.click(screen.getByRole("button", { name: "Your diagrams" }));
     await waitFor(() => expect(store.list).toHaveBeenCalled());
     expect(screen.getByText("Your first diagram starts here.")).toBeTruthy();
@@ -142,17 +144,16 @@ describe("Entry B product shell", () => {
     expect(screen.queryByText(/native_agent_invocation/)).toBeNull();
   });
 
-  it("retires the old guide route back to the landing page", () => {
+  it("retires the old guide route directly into the workspace", () => {
     window.history.replaceState({}, "", "/#view=guide");
     render(
       <ProductShell api={makeApi() as never} store={makeStore() as never} />,
     );
 
     expect(
-      screen.getByRole("heading", {
-        name: "Draw by hand. Shape it with your own AI.",
-      }),
+      screen.getByRole("navigation", { name: "Diagram workspace" }),
     ).toBeTruthy();
+    expect(screen.queryByText("Try this WebMCP demo")).toBeNull();
     expect(screen.queryByText("CHATGPT DESKTOP SITE TOOLS")).toBeNull();
   });
 });

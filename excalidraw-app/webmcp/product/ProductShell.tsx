@@ -38,16 +38,13 @@ type ProductShellProps = {
   store?: DiagramStore;
 };
 
-type ProductView = "landing" | "workspace" | "library";
+type ProductView = "workspace" | "library";
 
 const readRoute = () => {
   const params = new URLSearchParams(window.location.hash.slice(1));
   const requested = params.get("view");
-  const view: ProductView = params.has("share")
-    ? "workspace"
-    : requested === "workspace" || requested === "library"
-    ? requested
-    : "landing";
+  const view: ProductView =
+    requested === "library" && !params.has("share") ? "library" : "workspace";
   return { view, share: params.get("share") };
 };
 
@@ -69,6 +66,9 @@ const safeFilename = (name: string) =>
       .slice(0, 60) || "diagram"
   }.png`;
 
+const CHATGPT_DEMO_PROMPT =
+  "Learn about WebMCP, then open this website: https://hungson175.github.io/excalidraw-webmcp/ — using your own built-in browser and WebMCP, create a diagram that explains the concept of WebMCP to me.";
+
 export const ProductShell = ({
   api,
   store: suppliedStore,
@@ -88,13 +88,14 @@ export const ProductShell = ({
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [status, setStatus] = useState("Ready");
   const [shareUrl, setShareUrl] = useState("");
+  const [promptCopied, setPromptCopied] = useState(false);
   const importedShare = useRef<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
   const go = useCallback((next: ProductView) => {
     const params = new URLSearchParams();
-    if (next !== "landing") {
-      params.set("view", next);
+    if (next === "library") {
+      params.set("view", "library");
     }
     const fragment = params.toString();
     window.history.pushState(
@@ -133,12 +134,10 @@ export const ProductShell = ({
       ) {
         return;
       }
-      const params = new URLSearchParams();
-      params.set("view", "workspace");
       ownerWindow.history.replaceState(
         {},
         "",
-        `${ownerWindow.location.pathname}${ownerWindow.location.search}#${params}`,
+        `${ownerWindow.location.pathname}${ownerWindow.location.search}`,
       );
       setView("workspace");
       setStatus(`Agent is staging ${detail.tool}…`);
@@ -312,93 +311,64 @@ export const ProductShell = ({
     }
   };
 
+  const copyDemoPrompt = async () => {
+    const clipboard =
+      rootRef.current?.ownerDocument.defaultView?.navigator.clipboard;
+    if (!clipboard?.writeText) {
+      setPromptCopied(false);
+      setStatus("Copy unavailable — select the prompt manually");
+      return;
+    }
+    try {
+      await clipboard.writeText(CHATGPT_DEMO_PROMPT);
+      setPromptCopied(true);
+      setStatus("Prompt copied");
+    } catch {
+      setPromptCopied(false);
+      setStatus("Copy unavailable — select the prompt manually");
+    }
+  };
+
   return (
     <div ref={rootRef} className="product-shell" data-product-view={view}>
-      {view === "landing" ? (
-        <main className="product-shell__landing">
-          <nav aria-label="Product">
-            <span className="product-shell__brand">
-              <span aria-hidden="true">◇</span> Canvas Agent
-            </span>
-          </nav>
-          <section>
-            <p className="product-shell__eyebrow">
-              YOUR CANVAS. YOUR AGENT. SAME TIME.
-            </p>
-            <h1>Draw by hand. Shape it with your own AI.</h1>
-            <p className="product-shell__lede">
-              A complete Excalidraw workspace where your local coding agent
-              creates and edits real objects without taking your cursor.
-            </p>
-            <div className="product-shell__hero-actions">
-              <button
-                className="is-primary"
-                type="button"
-                onClick={() => go("workspace")}
-              >
-                Start drawing
-              </button>
-            </div>
-            <ul aria-label="Product promises">
-              <li>No account</li>
-              <li>No backend</li>
-              <li>Human-only commit</li>
-            </ul>
-            <aside
-              className="product-shell__chatgpt-guide"
-              aria-labelledby="chatgpt-guide-title"
-            >
-              <h2 id="chatgpt-guide-title">Try this WebMCP demo</h2>
-              <ol>
-                <li>Open the ChatGPT Desktop app.</li>
-                <li>Open Codex and select Sol or Terra.</li>
-                <li>Paste this prompt:</li>
-              </ol>
-              <blockquote>
-                Learn about WebMCP, then open this website:
-                https://hungson175.github.io/excalidraw-webmcp/ — using your own
-                built-in browser and WebMCP, create a diagram that explains the
-                concept of WebMCP to me.
-              </blockquote>
-              <p>
-                Wait while it draws. Click Commit layout, then edit the diagram
-                by hand if you like.
-              </p>
-            </aside>
-          </section>
-          <footer>
-            Local-first by design. Ignore every AI control and ordinary
-            Excalidraw still works.
-          </footer>
-        </main>
-      ) : (
-        <nav
-          className="product-shell__workspace-nav"
-          aria-label="Diagram workspace"
-        >
+      <nav
+        className="product-shell__workspace-nav"
+        aria-label="Diagram workspace"
+      >
+        <span className="product-shell__wordmark">◇ Canvas Agent</span>
+        <div>
+          <button type="button" onClick={() => go("library")}>
+            Your diagrams
+          </button>
+          <button type="button" onClick={() => setSaveOpen(true)}>
+            Save diagram
+          </button>
+          <button type="button" onClick={() => void createShareLink()}>
+            Share link
+          </button>
+          <button type="button" onClick={() => void exportPng()}>
+            Export PNG
+          </button>
           <button
             type="button"
-            className="product-shell__wordmark"
-            onClick={() => go("landing")}
+            className="product-shell__copy-prompt"
+            onClick={() => void copyDemoPrompt()}
+            aria-label={promptCopied ? "Prompt copied" : "Copy demo prompt"}
+            title={promptCopied ? "Prompt copied" : "Copy demo prompt"}
           >
-            ◇ Canvas Agent
+            {promptCopied ? (
+              <svg aria-hidden="true" viewBox="0 0 16 16">
+                <path d="m3 8.5 3 3 7-7" />
+              </svg>
+            ) : (
+              <svg aria-hidden="true" viewBox="0 0 16 16">
+                <rect x="5.5" y="5.5" width="7" height="7" rx="1" />
+                <path d="M10.5 5.5v-2h-7v7h2" />
+              </svg>
+            )}
           </button>
-          <div>
-            <button type="button" onClick={() => go("library")}>
-              Your diagrams
-            </button>
-            <button type="button" onClick={() => setSaveOpen(true)}>
-              Save diagram
-            </button>
-            <button type="button" onClick={() => void createShareLink()}>
-              Share link
-            </button>
-            <button type="button" onClick={() => void exportPng()}>
-              Export PNG
-            </button>
-          </div>
-        </nav>
-      )}
+        </div>
+      </nav>
 
       {view === "library" ? (
         <main

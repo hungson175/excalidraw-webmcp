@@ -110,7 +110,6 @@ describe("Entry B product actions", () => {
     const api = makeApi();
     const store = makeStore();
     render(<ProductShell api={api as never} store={store as never} />);
-    fireEvent.click(screen.getByRole("button", { name: "Start drawing" }));
     fireEvent.click(screen.getByRole("button", { name: "Share link" }));
     const shareInput = await screen.findByLabelText("Share URL");
     expect((shareInput as HTMLInputElement).value).toMatch(
@@ -174,7 +173,6 @@ describe("Entry B product actions", () => {
       .spyOn(HTMLAnchorElement.prototype, "click")
       .mockImplementation(() => undefined);
     render(<ProductShell api={api as never} store={makeStore() as never} />);
-    fireEvent.click(screen.getByRole("button", { name: "Start drawing" }));
     fireEvent.click(screen.getByRole("button", { name: "Export PNG" }));
 
     await waitFor(() => expect(exportToBlob).toHaveBeenCalledOnce());
