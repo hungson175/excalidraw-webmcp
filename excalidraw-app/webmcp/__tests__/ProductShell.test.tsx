@@ -49,6 +49,7 @@ describe("Entry B product shell", () => {
     expect(
       screen.getByRole("button", { name: "Copy demo prompt" }),
     ).toBeTruthy();
+    expect(screen.getByText("Copy prompt")).toBeTruthy();
     expect(screen.queryByText("Try this WebMCP demo")).toBeNull();
     await new Promise((resolve) => window.setTimeout(resolve, 20));
     expect(api.updateScene).not.toHaveBeenCalled();
@@ -95,6 +96,7 @@ describe("Entry B product shell", () => {
       ),
     );
     expect(screen.getByRole("button", { name: "Prompt copied" })).toBeTruthy();
+    expect(screen.getByText("Copied")).toBeTruthy();
     expect(screen.getByRole("status")).toHaveTextContent("Prompt copied");
   });
 

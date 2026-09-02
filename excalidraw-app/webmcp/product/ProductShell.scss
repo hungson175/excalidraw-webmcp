@@ -119,10 +119,12 @@
   }
 
   .product-shell__copy-prompt {
-    display: grid;
-    width: 2.2rem;
-    padding: 0;
-    place-items: center;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding-inline: 0.6rem;
+    background: #f1eff9;
+    color: var(--product-accent-dark);
 
     svg {
       width: 1rem;

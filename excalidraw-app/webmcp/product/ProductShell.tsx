@@ -337,18 +337,6 @@ export const ProductShell = ({
       >
         <span className="product-shell__wordmark">◇ Canvas Agent</span>
         <div>
-          <button type="button" onClick={() => go("library")}>
-            Your diagrams
-          </button>
-          <button type="button" onClick={() => setSaveOpen(true)}>
-            Save diagram
-          </button>
-          <button type="button" onClick={() => void createShareLink()}>
-            Share link
-          </button>
-          <button type="button" onClick={() => void exportPng()}>
-            Export PNG
-          </button>
           <button
             type="button"
             className="product-shell__copy-prompt"
@@ -366,6 +354,19 @@ export const ProductShell = ({
                 <path d="M10.5 5.5v-2h-7v7h2" />
               </svg>
             )}
+            <span>{promptCopied ? "Copied" : "Copy prompt"}</span>
+          </button>
+          <button type="button" onClick={() => go("library")}>
+            Your diagrams
+          </button>
+          <button type="button" onClick={() => setSaveOpen(true)}>
+            Save diagram
+          </button>
+          <button type="button" onClick={() => void createShareLink()}>
+            Share link
+          </button>
+          <button type="button" onClick={() => void exportPng()}>
+            Export PNG
           </button>
         </div>
       </nav>
